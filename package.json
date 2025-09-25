@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "start": "node ./dist/server.js",
+    "start": "node --env-file .env ./dist/server.js",
     "restart": "npm run build && npm run start"
   },
   "keywords": [],
@@ -13,6 +13,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.896.0",
+    "@aws-sdk/lib-dynamodb": "^3.896.0",
     "express": "^5.1.0",
     "zod": "^4.1.11"
   },
