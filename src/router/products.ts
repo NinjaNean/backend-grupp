@@ -1,7 +1,7 @@
 import express from "express";
-import type { Response, Router } from "express";
+import type { Request, Response, Router } from "express";
 import { db, myTable } from "../data/db.js";
-import { QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 
 const router: Router = express.Router();
 
@@ -35,7 +35,7 @@ router.get("/", async (req, res: Response<SuccessResponse | ErrorResponse>) => {
         KeyConditionExpression: "pk = :products AND begins_with(sk, :productId)",
         ExpressionAttributeValues: {
           ":products": "products",
-          ":productId": "productId#",
+          ":productId": "productId",
         },
       })
     );
@@ -52,6 +52,26 @@ router.get("/", async (req, res: Response<SuccessResponse | ErrorResponse>) => {
       error: (error as Error).message,
     });
   }
+});
+
+type ProductParam = {
+  productId: string;
+};
+
+router.get("/:productId", async (req: Request<ProductParam>, res) => {
+  const productId: string = req.params.productId;
+
+  const result = await db.send(
+    new GetCommand({
+      TableName: myTable,
+      Key: {
+        pk: "products",
+        sk: productId,
+      },
+    })
+  );
+
+  res.status(200).send(result.Item);
 });
 
 export default router;
