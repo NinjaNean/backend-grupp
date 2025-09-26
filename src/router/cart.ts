@@ -5,13 +5,16 @@ import { QueryCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 
 const router: Router = express.Router();
 
+//DELETE för att radera en specifik produkt i en användares kundvagn.
+//DELETE för att radera hela användares kundvagn.
+
 type CartItem = {
   id: string;
   userId: string;
   productId: string;
   amount: number;
-  price?: string;
-  name?: string;
+  price?: string; //behövs inte?
+  name?: string; //behövs inte?
 };
 
 // GET Hämta användarinfo och produkter i användarens cart
