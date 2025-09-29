@@ -1,7 +1,9 @@
 import express from "express";
 import type { Request, Response, Router } from "express";
 import { db, myTable } from "../data/db.js";
-import { GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { DeleteCommand, GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import type { DeleteCommandOutput } from "@aws-sdk/lib-dynamodb";
+import { success } from "zod";
 
 const router: Router = express.Router();
 
@@ -48,7 +50,7 @@ router.get("/", async (req, res: Response<SuccessResponse | ErrorResponse>) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Could not fetch products",
+      message: "Could not fetch products.",
       error: (error as Error).message,
     });
   }
@@ -72,6 +74,45 @@ router.get("/:productId", async (req: Request<ProductParam>, res) => {
   );
 
   res.status(200).send(result.Item);
+});
+
+router.delete("/:productId", async (req: Request<ProductParam>, res: Response<object | ErrorResponse>) => {
+  const productId: string = req.params.productId;
+
+  try {
+    let result: DeleteCommandOutput = await db.send(
+      new DeleteCommand({
+        TableName: myTable,
+        Key: {
+          pk: "products",
+          sk: productId,
+        },
+        ConditionExpression: "attribute_exists(sk)",
+        ReturnValues: "ALL_OLD",
+      })
+    );
+    console.log(result);
+
+    res.status(200).json({
+      message: `Produkten har tagits bort.`,
+      // TODO: ändra till engelska
+      // TODO: skicka tillbaka objectet som tagits bort
+    });
+  } catch (error) {
+    if ((error as Error).name === "ConditionalCheckFailedException") {
+      res.status(404).json({
+        success: false,
+        message: `${productId} dose not exist.`,
+        error: (error as Error).message,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: "Could not delete product.",
+        error: (error as Error).message,
+      });
+    }
+  }
 });
 
 export default router;
