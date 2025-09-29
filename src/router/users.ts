@@ -2,18 +2,31 @@ import { GetCommand, QueryCommand, ScanCommand, PutCommand, DeleteCommand } from
 import express from "express"
 import type { Request, Response, Router } from "express"
 import { db, myTable } from "../data/db.js"
-import  { userSchema } from "../data/validation.js"
+import  { userIdSchema, userSchema } from "../data/validation.js"
+
 
 
 const router: Router = express.Router()
 
 export type GetResult = Record<string, any> | undefined
+
 interface user {
     pk: string
     sk: string
     name: string
 }
 
+type ErrorResponse = {
+    success: boolean
+    message: string
+    error: string
+}
+
+type successResponse = {
+    success: boolean
+    counter: number
+    items: user[]
+}
 
 // get all users
 
@@ -35,7 +48,7 @@ interface user {
 // })
 
 
-router.get("/", async (req, res: Response) => {
+router.get("/", async (req, res: Response<successResponse | ErrorResponse>) => {
   try {
     const result: GetResult = await db.send(
       new ScanCommand({  // ScanCommand to get entire table
@@ -48,22 +61,27 @@ router.get("/", async (req, res: Response) => {
       })
     )
 
-    const items = result.Items as user[]  // 
+    // const items = result.Items as user[]  // old before successResponse type
     res.status(200).send({   // respond with 200 ok and count of user and the useres
-        count: result.Count ?? 0, // ?? = nullish coalescing operator if null or undefined then 0
-        items }) 
+        success: true ,  // added success true to match successResponse type
+        counter: result.Count ?? 0, // ?? = nullish coalescing operator if null or undefined then 0
+        items: result.Items ?? [] 
+    }) 
     
 
   } catch (error) {
     res.status(500).send({
-      message: "Could not fetch users" // might need if count is zero sense you cant only get "Cannot GET"
+        success: false,
+        error: (error as Error).message,
+        message: "Could not fetch users"
+    //   message: "Could not fetch users" // might need if count is zero sense you cant only get "Cannot GET"
     })
   }
 })
 
 // get user by id 
 
-router.get("/:id", async (req: Request, res: Response) => {
+router.get("/:id", async (req: Request, res: Response<successResponse | ErrorResponse>) => {
     try {
         const userId = req.params.id // get id from params
         // const pkValue = `user${userId.substring(1)} // if you want to use u1 instead of useru1 for id search
@@ -79,13 +97,20 @@ router.get("/:id", async (req: Request, res: Response) => {
       })
     )
 
-    const items = result.Items as user[]  // 
-    res.status(200).send({   // respond with 200 ok and count of user and the useres
-        count: result.Count,
-        items }) 
+    const items = result.Items as user[]  // old before successResponse type
+    res.send({   // respond with 200 ok and count of user and the useres
+    //    count: result.Count,
+    //     items
+       
+        success: true,
+        counter: result.count ?? 0,
+        items: result.Items ?? []
+    }) 
     } catch (error) {
-        res.status(500).send({
-            message: "Could not fetch user by id" // 
+        res.send({
+            success: false,
+            error: (error as Error).message,
+            message: "Could not fetch by Id" // 
         })
         
     }
