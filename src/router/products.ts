@@ -1,8 +1,8 @@
 import express from "express";
 import type { Request, Response, Router } from "express";
 import { db, myTable } from "../data/db.js";
-import { DeleteCommand, GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
-import type { DeleteCommandOutput } from "@aws-sdk/lib-dynamodb";
+import { DeleteCommand, GetCommand, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import type { DeleteCommandOutput, PutCommandOutput } from "@aws-sdk/lib-dynamodb";
 import { success } from "zod";
 
 const router: Router = express.Router();
@@ -42,13 +42,13 @@ router.get("/", async (req, res: Response<SuccessResponse | ErrorResponse>) => {
       })
     );
 
-    res.status(200).json({
+    res.status(200).send({
       success: true,
       count: result.Count ?? 0,
       items: result.Items ?? [],
     });
   } catch (error) {
-    res.status(500).json({
+    res.status(500).send({
       success: false,
       message: "Could not fetch products.",
       error: (error as Error).message,
@@ -93,7 +93,7 @@ router.delete("/:productId", async (req: Request<ProductParam>, res: Response<ob
     );
     console.log(result);
 
-    res.status(200).json({
+    res.status(200).send({
       message: `Produkten har tagits bort.`,
       // TODO: ändra till engelska
       // TODO: skicka tillbaka objectet som tagits bort
@@ -113,6 +113,21 @@ router.delete("/:productId", async (req: Request<ProductParam>, res: Response<ob
       });
     }
   }
+});
+
+router.post("/", async (req, res) => {
+  const newProduct = req.body;
+
+  let result: PutCommandOutput = await db.send(
+    new PutCommand({
+      TableName: myTable,
+      Item: newProduct,
+    })
+  );
+
+  res.status(202).json({
+    message: "Produkten är tillagd.",
+  });
 });
 
 export default router;
