@@ -8,13 +8,13 @@ const router: Router = express.Router();
 //DELETE för att radera en specifik produkt i en användares kundvagn.
 //DELETE för att radera hela användares kundvagn.
 
+//lägga till request/response?
+
 type CartItem = {
   id: string;
   userId: string;
   productId: string;
   amount: number;
-  price?: string; //behövs inte?
-  name?: string; //behövs inte?
 };
 
 // GET Hämta användarinfo och produkter i användarens cart
@@ -32,7 +32,7 @@ router.get("/:userId", async (req: Request, res: Response) => {
 
     const items = result.Items || [];
 
-    // Separera meta info och produkter i cart 
+    // Separera meta och produkter i cart 
     const meta = items.find((item: any) => item.sk === "meta") || {};
     const cartItems = items
       .filter((item: any) => item.sk.startsWith("cart"))
@@ -41,17 +41,15 @@ router.get("/:userId", async (req: Request, res: Response) => {
         userId: userId,
         productId: item.productId ?? "",
         amount: Number(item.amount ?? 1),
-        price: item.price,
-        name: item.name
       }));
 
     const response = {
       userId,
-      name: meta.name ?? "", 
+      name: meta.name ?? "", //inte null eller undefined, annars tom
       cart: cartItems
     };
 
-    console.log(`GET /cart/${userId} ->`, response);
+    console.log(`GET /cart/${userId}`, response);
     res.json({ success: true, ...response });
   } catch (err) {
     console.error(err);
@@ -71,13 +69,13 @@ router.post("/:userId", async (req: Request, res: Response) => {
     }
 
     const cartId = `cart${Date.now()}`;
-    const newCartItem: CartItem = { id: cartId, userId, productId, amount, price, name };
+    const newCartItem: CartItem = { id: cartId, userId, productId, amount };
 
-    const dbItem = { pk: userId, sk: cartId, productId, amount, price, name };
+    const dbItem = { pk: userId, sk: cartId, productId, amount };
 
     await db.send(new PutCommand({ TableName: myTable, Item: dbItem }));
 
-    console.log("POST /cart/:userId ->", newCartItem);
+    console.log("POST /cart/:userId", newCartItem);
     res.status(201).json({ success: true, item: newCartItem });
   } catch (err) {
     console.error(err);
@@ -108,8 +106,6 @@ router.put("/:userId/:cartId", async (req: Request, res: Response) => {
       userId: result.Attributes?.pk ?? "",   
       productId: result.Attributes?.productId ?? "",
       amount: result.Attributes?.amount ?? 1,
-      price: result.Attributes?.price,
-      name: result.Attributes?.name
     };
 
     console.log("PUT /cart/:userId/:cartId ->", updatedItem);
