@@ -3,32 +3,10 @@ import type { Request, Response, Router } from "express";
 import { db, myTable } from "../data/db.js";
 import { DeleteCommand, GetCommand, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import type { DeleteCommandOutput, PutCommandOutput } from "@aws-sdk/lib-dynamodb";
-import { success } from "zod";
+import type { ErrorResponse, GetResult, SuccessResponse } from "../data/types.js";
 
 const router: Router = express.Router();
 
-type Product = {
-  image: string;
-  amountStock: number;
-  sk: string;
-  pk: string;
-  price: number;
-  name: string;
-};
-
-type SuccessResponse = {
-  success: boolean;
-  count: number;
-  items: Product[];
-};
-
-type ErrorResponse = {
-  success: boolean;
-  message: string;
-  error: string;
-};
-
-type GetResult = Record<string, any> | undefined;
 router.get("/", async (req, res: Response<SuccessResponse | ErrorResponse>) => {
   try {
     const result: GetResult = await db.send(

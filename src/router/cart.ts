@@ -2,6 +2,7 @@ import express from "express";
 import type { Request, Response, Router } from "express";
 import { db, myTable } from "../data/db.js";
 import { QueryCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import type { CartItem } from "../data/types.js";
 
 const router: Router = express.Router();
 
@@ -10,29 +11,24 @@ const router: Router = express.Router();
 
 //lägga till request/response?
 
-type CartItem = {
-  id: string;
-  userId: string;
-  productId: string;
-  amount: number;
-};
-
 // GET Hämta användarinfo och produkter i användarens cart
 router.get("/:userId", async (req: Request, res: Response) => {
   try {
     const userId = req.params.userId; // useru1 eller useru2
 
-    const result = await db.send(new QueryCommand({
-      TableName: myTable,
-      KeyConditionExpression: "pk = :pk",
-      ExpressionAttributeValues: {
-        ":pk": userId
-      }
-    }));
+    const result = await db.send(
+      new QueryCommand({
+        TableName: myTable,
+        KeyConditionExpression: "pk = :pk",
+        ExpressionAttributeValues: {
+          ":pk": userId,
+        },
+      })
+    );
 
     const items = result.Items || [];
 
-    // Separera meta och produkter i cart 
+    // Separera meta och produkter i cart
     const meta = items.find((item: any) => item.sk === "meta") || {};
     const cartItems = items
       .filter((item: any) => item.sk.startsWith("cart"))
@@ -46,7 +42,7 @@ router.get("/:userId", async (req: Request, res: Response) => {
     const response = {
       userId,
       name: meta.name ?? "", //inte null eller undefined, annars tom
-      cart: cartItems
+      cart: cartItems,
     };
 
     console.log(`GET /cart/${userId}`, response);
@@ -57,11 +53,10 @@ router.get("/:userId", async (req: Request, res: Response) => {
   }
 });
 
-
 // POST Lägg till en produkt i användarens cart
 router.post("/:userId", async (req: Request, res: Response) => {
   try {
-    const userId = req.params.userId!; 
+    const userId = req.params.userId!;
     const { productId, amount, price, name } = req.body;
 
     if (!productId || !amount) {
@@ -86,24 +81,26 @@ router.post("/:userId", async (req: Request, res: Response) => {
 // PUT Uppdatera antal av en produkt i användarens cart
 router.put("/:userId/:cartId", async (req: Request, res: Response) => {
   try {
-    const { userId, cartId } = req.params; 
+    const { userId, cartId } = req.params;
     const { amount } = req.body;
 
     if (!amount || amount < 1) {
       return res.status(400).json({ error: "Amount must be at least 1" });
     }
 
-    const result = await db.send(new UpdateCommand({
-      TableName: myTable,
-      Key: { pk: userId, sk: cartId },
-      UpdateExpression: "SET amount = :amount",
-      ExpressionAttributeValues: { ":amount": amount },
-      ReturnValues: "ALL_NEW"
-    }));
+    const result = await db.send(
+      new UpdateCommand({
+        TableName: myTable,
+        Key: { pk: userId, sk: cartId },
+        UpdateExpression: "SET amount = :amount",
+        ExpressionAttributeValues: { ":amount": amount },
+        ReturnValues: "ALL_NEW",
+      })
+    );
 
     const updatedItem: CartItem = {
       id: result.Attributes?.sk ?? "",
-      userId: result.Attributes?.pk ?? "",   
+      userId: result.Attributes?.pk ?? "",
       productId: result.Attributes?.productId ?? "",
       amount: result.Attributes?.amount ?? 1,
     };
