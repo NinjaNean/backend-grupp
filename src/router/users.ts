@@ -10,45 +10,39 @@ const router: Router = express.Router()
 
 export type GetResult = Record<string, any> | undefined
 
-interface user {
+interface User {
     pk: string
     sk: string
     name: string
 }
 
 type ErrorResponse = {
-    success: boolean
+    success: false
     message: string
     error: string
 }
 
-type successResponse = {
-    success: boolean
+type GetUsersResponse = {
+    success: true
     counter: number
-    items: user[]
+    items: User[]
+}
+ // post and put share response type
+type CreateUserSuccessResponse = {
+    success: true
+    message: string
+    user: User
+}
+
+
+type DeleteUserSuccessResponse = {
+    success: true
+    message: string
 }
 
 // get all users
 
-// router.get('/', async (req: Request, res: Response) => {
-//     try {
-//         const scanCommand = new ScanCommand({
-//             TableName: myTable,
-//             FilterExpression: "PK = :pk AND SK = :sk",
-//             ExpressionAttributeValues: {
-//                 ":pk": "user",
-//                 ":sk": "meta"
-//             }
-//         })
-//         const result = await db.send(scanCommand)
-//         res.send(result.Items as user[])
-//     } catch (error) {
-//         res.status(500).send({ error: "Failed to fetch users" })
-//     }
-// })
-
-
-router.get("/", async (req, res: Response<successResponse | ErrorResponse>) => {
+router.get("/", async (req, res: Response<GetUsersResponse | ErrorResponse>) => {
   try {
     const result: GetResult = await db.send(
       new ScanCommand({  // ScanCommand to get entire table
@@ -81,7 +75,7 @@ router.get("/", async (req, res: Response<successResponse | ErrorResponse>) => {
 
 // get user by id 
 
-router.get("/:id", async (req: Request, res: Response<successResponse | ErrorResponse>) => {
+router.get("/:id", async (req: Request, res: Response<GetUsersResponse | ErrorResponse>) => {
     try {
         const userId = req.params.id // get id from params
         // const pkValue = `user${userId.substring(1)} // if you want to use u1 instead of useru1 for id search
@@ -97,7 +91,7 @@ router.get("/:id", async (req: Request, res: Response<successResponse | ErrorRes
       })
     )
 
-    const items = result.Items as user[]  // old before successResponse type
+    const items = result.Items as User[]  // old before successResponse type
     res.send({   // respond with 200 ok and count of user and the useres
     //    count: result.Count,
     //     items
@@ -118,26 +112,34 @@ router.get("/:id", async (req: Request, res: Response<successResponse | ErrorRes
 
 // POST create new user 
 
-router.post("/", async (req: Request, res: Response) => {
+router.post("/", async (req: Request, res: Response<CreateUserSuccessResponse | ErrorResponse>) => {
     try {
-        let newUser: user = userSchema.parse(req.body) // validate input data
+        let newUser: User = userSchema.parse(req.body) // validate input data
 
         await db.send(new PutCommand({
             TableName: myTable,
             Item: newUser,
             ConditionExpression: "attribute_not_exists(pk)" // prevent overwriting existing user
         }))
-        res.status(201).send(newUser)
+        res.status(201).send({
+            success: true,
+            message: "User created successfully",
+            user: newUser
+        })
     }
     catch (error) {
 
-        res.status(500).send({ error: 'Failed to add user', details: error })
+        res.status(500).send({
+            success: false,
+            error: (error as Error).message,
+            message: "failed to create user"
+        })
     }
 })
 
 // DELETE user by id
 
-router.delete("/:id", async (req: Request, res: Response) => {
+router.delete("/:id", async (req: Request, res: Response<DeleteUserSuccessResponse | ErrorResponse>) => {
     try {
         const userId = req.params.id
 
@@ -149,29 +151,51 @@ router.delete("/:id", async (req: Request, res: Response) => {
             },
             ConditionExpression: "attribute_exists(pk)" // ensure user exists
         }))
-        res.status(204).send() // no content
+        res.status(204).send({
+            success: true,
+            message: "User deleted successfully"
+        }) // no content
     } catch (error) {
-        res.status(500).send({ error: 'Failed to delete user', details: error })
+        res.status(500).send({
+            success: false,
+            error: (error as Error).message,
+            message: "Failed to delete user"
+        })
     }
 })
 
 // PUT update user by Id 
-router.put("/:id", async (req: Request, res: Response) => {
+router.put("/:id", async (req: Request, res: Response<CreateUserSuccessResponse | ErrorResponse>) => {
     try {
         const userId = req.params.id
-        let updatedUser: user = userSchema.parse(req.body) // validate input data
+        let updatedUser: User = userSchema.parse(req.body) // validate input data
+
         if (userId !== updatedUser.pk) {  // ensure id in url matches id in body, so we dont get diffrent ids 
-            return res.status(400).send({ error: "User ID in URL and body do not match" })
+            return res.status(400).send({
+                success: false,
+                error: "ID mismatch",
+                message: "User ID in URL and body do not match"
+            })
         }
+
         await db.send(new PutCommand({
             TableName: myTable,
             Item: updatedUser,
             ConditionExpression: "attribute_exists(pk)" // ensure user exists
         }))
-        res.status(200).send(updatedUser)
+
+        res.status(200).send({
+            success: true,
+            message: "User updated successfully",
+            user: updatedUser
+        })
     }
     catch (error) {
-        res.status(500).send({ error: 'Failed to update user', details: error })
+        res.status(500).send({
+            success: false,
+            error: (error as Error).message,
+            message: "Failed to update user"
+        })
     }
 })
 
