@@ -3,6 +3,7 @@ import express from "express"
 import type { Request, Response, Router } from "express"
 import { db, myTable } from "../data/db.js"
 import  { userIdSchema, userSchema } from "../data/validation.js"
+import type { CreateUserBody, CreateUserSuccessResponse, DeleteUserSuccessResponse, ErrorResponse, GetUsersResponse, UpdateUserBody, User, UserIdParams } from "../data/types.js"
 
 
 
@@ -10,35 +11,6 @@ const router: Router = express.Router()
 
 export type GetResult = Record<string, any> | undefined
 
-interface User {
-    pk: string
-    sk: string
-    name: string
-}
-
-type ErrorResponse = {
-    success: false
-    message: string
-    error: string
-}
-
-type GetUsersResponse = {
-    success: true
-    counter: number
-    items: User[]
-}
- // post and put share response type
-type CreateUserSuccessResponse = {
-    success: true
-    message: string
-    user: User
-}
-
-
-type DeleteUserSuccessResponse = {
-    success: true
-    message: string
-}
 
 // get all users
 
@@ -75,7 +47,7 @@ router.get("/", async (req, res: Response<GetUsersResponse | ErrorResponse>) => 
 
 // get user by id 
 
-router.get("/:id", async (req: Request, res: Response<GetUsersResponse | ErrorResponse>) => {
+router.get("/:id", async (req: Request<UserIdParams>, res: Response<GetUsersResponse | ErrorResponse>) => {
     try {
         const userId = req.params.id // get id from params
         // const pkValue = `user${userId.substring(1)} // if you want to use u1 instead of useru1 for id search
@@ -112,7 +84,7 @@ router.get("/:id", async (req: Request, res: Response<GetUsersResponse | ErrorRe
 
 // POST create new user 
 
-router.post("/", async (req: Request, res: Response<CreateUserSuccessResponse | ErrorResponse>) => {
+router.post("/", async (req: Request<CreateUserBody>, res: Response<CreateUserSuccessResponse | ErrorResponse>) => {
     try {
         let newUser: User = userSchema.parse(req.body) // validate input data
 
@@ -139,7 +111,7 @@ router.post("/", async (req: Request, res: Response<CreateUserSuccessResponse | 
 
 // DELETE user by id
 
-router.delete("/:id", async (req: Request, res: Response<DeleteUserSuccessResponse | ErrorResponse>) => {
+router.delete("/:id", async (req: Request<UserIdParams>, res: Response<DeleteUserSuccessResponse | ErrorResponse>) => {
     try {
         const userId = req.params.id
 
@@ -165,7 +137,7 @@ router.delete("/:id", async (req: Request, res: Response<DeleteUserSuccessRespon
 })
 
 // PUT update user by Id 
-router.put("/:id", async (req: Request, res: Response<CreateUserSuccessResponse | ErrorResponse>) => {
+router.put("/:id", async (req: Request<UserIdParams, {}, UpdateUserBody>, res: Response<CreateUserSuccessResponse | ErrorResponse>) => {
     try {
         const userId = req.params.id
         let updatedUser: User = userSchema.parse(req.body) // validate input data
