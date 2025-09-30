@@ -49,8 +49,16 @@ router.get("/", async (req, res: Response<GetUsersResponse | ErrorResponse>) => 
 
 router.get("/:id", async (req: Request<UserIdParams>, res: Response<GetUsersResponse | ErrorResponse>) => {
     try {
-        const userId = req.params.id // get id from params
-        // const pkValue = `user${userId.substring(1)} // if you want to use u1 instead of useru1 for id search
+        const validationResult = userIdSchema.safeParse({ userId: req.params.id }) // validate user id from params
+        if (!validationResult.success) {  // if validation fails
+            return res.status(400).send({
+                success: false,
+                error: validationResult.error.message,
+                message: "Invalid user ID"
+            })
+        }
+        const userId = validationResult.data.userId  // get validated user id
+        
 
         const result: GetResult = await db.send(
             new QueryCommand({
@@ -63,7 +71,7 @@ router.get("/:id", async (req: Request<UserIdParams>, res: Response<GetUsersResp
       })
     )
 
-    const items = result.Items as User[]  // old before successResponse type
+
     res.send({   // respond with 200 ok and count of user and the useres
     //    count: result.Count,
     //     items
@@ -86,7 +94,17 @@ router.get("/:id", async (req: Request<UserIdParams>, res: Response<GetUsersResp
 
 router.post("/", async (req: Request<CreateUserBody>, res: Response<CreateUserSuccessResponse | ErrorResponse>) => {
     try {
-        let newUser: User = userSchema.parse(req.body) // validate input data
+        let validationResult = userSchema.safeParse(req.body) // validate input data
+
+        if (!validationResult.success) {   // if validation fails
+            return res.status(400).send({
+                success: false,
+                error: validationResult.error.message,
+                message: "Invalid user data"
+            })
+        }
+
+        const newUser = validationResult.data  // get validated data
 
         await db.send(new PutCommand({
             TableName: myTable,
@@ -113,7 +131,16 @@ router.post("/", async (req: Request<CreateUserBody>, res: Response<CreateUserSu
 
 router.delete("/:id", async (req: Request<UserIdParams>, res: Response<DeleteUserSuccessResponse | ErrorResponse>) => {
     try {
-        const userId = req.params.id
+        const validationResult = userIdSchema.safeParse({ userId: req.params.id }) // validate user id from params
+         if (!validationResult.success) {
+            return res.status(400).send({
+                success: false,
+                error: validationResult.error.message,
+                message: "Invalid user ID format"
+            })
+        }
+
+        const userId = validationResult.data.userId
 
         await db.send(new DeleteCommand({
             TableName: myTable,
@@ -140,7 +167,16 @@ router.delete("/:id", async (req: Request<UserIdParams>, res: Response<DeleteUse
 router.put("/:id", async (req: Request<UserIdParams, {}, UpdateUserBody>, res: Response<CreateUserSuccessResponse | ErrorResponse>) => {
     try {
         const userId = req.params.id
-        let updatedUser: User = userSchema.parse(req.body) // validate input data
+        let validationResult = userSchema.safeParse(req.body) // validate input data
+
+        if (!validationResult.success) {  // if validation fails
+            return res.status(400).send({
+                success: false,
+                error: validationResult.error.message,
+                message: "Invalid user data"
+            })
+        }
+        const updatedUser = validationResult.data  // get validated data
 
         if (userId !== updatedUser.pk) {  // ensure id in url matches id in body, so we dont get diffrent ids 
             return res.status(400).send({
