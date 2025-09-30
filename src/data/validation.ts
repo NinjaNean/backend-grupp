@@ -14,7 +14,7 @@ const userSchema = z.object({
 
 const ProductSchema = z.object({
   pk: z.literal("products"),
-  sk: z.string().regex(/^productId#\d+$/),
+  sk: z.string().regex(/^productId\d+$/),
   image: z.string(),
   amountStock: z.number(),
   price: z.number(),

@@ -1,4 +1,4 @@
-type Product = {
+export type Product = {
   image: string;
   amountStock: number;
   sk: string;
@@ -29,7 +29,7 @@ export type SuccessResponse = {
 export type ErrorResponse = {
   success: boolean;
   message: string;
-  error: string;
+  error: string | Record<string, any>;
 };
 
 export type GetResult = Record<string, any> | undefined;

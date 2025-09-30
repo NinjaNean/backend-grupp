@@ -3,8 +3,9 @@ import type { Request, Response, Router } from "express";
 import { db, myTable } from "../data/db.js";
 import { DeleteCommand, GetCommand, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { DeleteCommandOutput, PutCommandOutput } from "@aws-sdk/lib-dynamodb";
-import type { ErrorResponse, GetResult, SuccessResponse } from "../data/types.js";
+import type { ErrorResponse, GetResult, Product, SuccessResponse } from "../data/types.js";
 import { ProductSchema, UpdateProductSchema } from "../data/validation.js";
+import { success } from "zod";
 
 const router: Router = express.Router();
 
@@ -20,7 +21,7 @@ router.get("/", async (req, res: Response<SuccessResponse | ErrorResponse>) => {
         KeyConditionExpression: "pk = :p AND begins_with(sk, :pId)",
         ExpressionAttributeValues: {
           ":p": "products",
-          ":pId": "productId#",
+          ":pId": "productId",
         },
       })
     );
@@ -39,25 +40,41 @@ router.get("/", async (req, res: Response<SuccessResponse | ErrorResponse>) => {
   }
 });
 
-// TODO: lägg till felmeddelanden osv
-router.get("/:productId", async (req: Request<ProductParam>, res) => {
+// TODO: byt ut object
+router.get("/:productId", async (req: Request<ProductParam>, res: Response<object | ErrorResponse>) => {
   const productId: string = req.params.productId;
 
-  const result = await db.send(
-    new GetCommand({
-      TableName: myTable,
-      Key: {
-        pk: "products",
-        sk: productId,
-      },
-    })
-  );
+  try {
+    const result = await db.send(
+      new GetCommand({
+        TableName: myTable,
+        Key: {
+          pk: "products",
+          sk: productId,
+        },
+      })
+    );
 
-  res.status(200).send(result.Item);
+    res.status(200).send({
+      success: true,
+      Item: result.Item,
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Could not fetch product.",
+      error: (error as Error).message,
+    });
+  }
 });
 
-// TODO: byt ut object mot något annat
-router.delete("/:productId", async (req: Request<ProductParam>, res: Response<object | ErrorResponse>) => {
+type DeleteResponse = {
+  success: boolean;
+  message: string;
+  deleted: Product | null;
+};
+
+router.delete("/:productId", async (req: Request<ProductParam>, res: Response<DeleteResponse | ErrorResponse>) => {
   const productId: string = req.params.productId;
 
   try {
@@ -73,9 +90,12 @@ router.delete("/:productId", async (req: Request<ProductParam>, res: Response<ob
       })
     );
 
+    const deletedProduct: Product | null = result.Attributes ? (result.Attributes as Product) : null;
+
     res.status(200).send({
+      success: true,
       message: "The product has been removed.",
-      Item: result.Attributes,
+      deleted: deletedProduct,
     });
   } catch (error) {
     if ((error as Error).name === "ConditionalCheckFailedException") {
@@ -94,8 +114,13 @@ router.delete("/:productId", async (req: Request<ProductParam>, res: Response<ob
   }
 });
 
-// TODO: lägg till felmeddelanden osv
-router.post("/", async (req, res) => {
+type AddedResponse = {
+  success: boolean;
+  message: string;
+  added: Product | null;
+};
+
+router.post("/", async (req, res: Response<AddedResponse | ErrorResponse>) => {
   const parsed = ProductSchema.safeParse(req.body);
 
   if (!parsed.success) {
@@ -117,30 +142,46 @@ router.post("/", async (req, res) => {
     })
   );
 
+  const addedProduct = result.Attributes ? (result.Attributes as Product) : null;
+
   res.status(201).send({
+    success: true,
     message: "The product has been added.",
+    added: addedProduct,
   });
 });
 
-// TODO: byt ut object mot något annat
-router.put("/:productId", async (req: Request<ProductParam>, res: Response<object | ErrorResponse>) => {
+type UpdatedResponse = {
+  success: boolean;
+  message: string;
+  updated: UpdatedProduct | null;
+};
+
+type UpdatedProduct = {
+  image: string;
+  amountStock: number;
+  price: number;
+  name: string;
+};
+
+router.put("/:productId", async (req: Request<ProductParam>, res: Response<UpdatedResponse | ErrorResponse>) => {
   const productId: string = req.params.productId;
 
+  const parsed = UpdateProductSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    res.status(400).send({
+      success: parsed.success,
+      message: "The product information is invalid.",
+      error: parsed.error,
+    });
+
+    return;
+  }
+
+  const updatedProduct = parsed.data;
+
   try {
-    const parsed = UpdateProductSchema.safeParse(req.body);
-
-    if (!parsed.success) {
-      res.status(400).send({
-        success: parsed.success,
-        message: "The product information is invalid.",
-        error: parsed.error,
-      });
-
-      return;
-    }
-
-    const updatedProduct = parsed.data;
-
     let result = await db.send(
       new UpdateCommand({
         TableName: myTable,
@@ -159,9 +200,12 @@ router.put("/:productId", async (req: Request<ProductParam>, res: Response<objec
       })
     );
 
+    const newProduct: UpdatedProduct | null = result.Attributes ? (result.Attributes as Product) : null;
+
     res.status(200).send({
+      success: true,
       message: "Product updated.",
-      Item: result.Attributes,
+      updated: newProduct,
     });
   } catch (error) {
     res.status(500).send({
