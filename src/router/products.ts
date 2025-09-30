@@ -1,7 +1,7 @@
 import express from "express";
 import type { Request, Response, Router } from "express";
 import { db, myTable } from "../data/db.js";
-import { DeleteCommand, GetCommand, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { DeleteCommand, GetCommand, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { DeleteCommandOutput, PutCommandOutput } from "@aws-sdk/lib-dynamodb";
 import type { ErrorResponse, GetResult, SuccessResponse } from "../data/types.js";
 
@@ -54,6 +54,7 @@ router.get("/:productId", async (req: Request<ProductParam>, res) => {
   res.status(200).send(result.Item);
 });
 
+// TODO byt ut object mot något annat
 router.delete("/:productId", async (req: Request<ProductParam>, res: Response<object | ErrorResponse>) => {
   const productId: string = req.params.productId;
 
@@ -72,9 +73,8 @@ router.delete("/:productId", async (req: Request<ProductParam>, res: Response<ob
     console.log(result);
 
     res.status(200).send({
-      message: `Produkten har tagits bort.`,
-      // TODO: ändra till engelska
-      // TODO: skicka tillbaka objectet som tagits bort
+      message: "The product has been removed.",
+      Item: result.Attributes,
     });
   } catch (error) {
     if ((error as Error).name === "ConditionalCheckFailedException") {
@@ -106,6 +106,35 @@ router.post("/", async (req, res) => {
   res.status(202).json({
     message: "Produkten är tillagd.",
   });
+});
+
+type NewProduct = {
+  image: string;
+  amountStock: number;
+  price: number;
+  name: string;
+};
+
+router.put("/:productId", (req: Request<ProductParam>, res) => {
+  const productId: string = req.params.productId;
+  const newProduct = req.body;
+
+  let result = db.send(
+    new UpdateCommand({
+      TableName: myTable,
+      Key: {
+        pk: "products",
+        sk: productId,
+      },
+      UpdateExpression: "SET image = :i, amountStock = :a, price = :p, name = :n",
+      ExpressionAttributeValues: {
+        ":i": newProduct.image,
+        ":a": newProduct.amountStock,
+        ":p": newProduct.price,
+        ":n": newProduct.name,
+      },
+    })
+  );
 });
 
 export default router;
