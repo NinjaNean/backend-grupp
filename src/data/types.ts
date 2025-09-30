@@ -29,7 +29,7 @@ export type SuccessResponse = {
 export type ErrorResponse = {
   success: boolean;
   message: string;
-  error: string | Record<string, any>;
+  error: string;
 };
 
 export type GetResult = Record<string, any> | undefined;

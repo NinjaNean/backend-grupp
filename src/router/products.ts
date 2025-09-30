@@ -5,7 +5,6 @@ import { DeleteCommand, GetCommand, PutCommand, QueryCommand, UpdateCommand } fr
 import type { DeleteCommandOutput, PutCommandOutput } from "@aws-sdk/lib-dynamodb";
 import type { ErrorResponse, GetResult, Product, SuccessResponse } from "../data/types.js";
 import { ProductSchema, UpdateProductSchema } from "../data/validation.js";
-import { success } from "zod";
 
 const router: Router = express.Router();
 
@@ -68,66 +67,63 @@ router.get("/:productId", async (req: Request<ProductParam>, res: Response<objec
   }
 });
 
-type DeleteResponse = {
-  success: boolean;
+type OperationResult<T> = {
+  success: true;
   message: string;
-  deleted: Product | null;
+  item: T | null;
 };
 
-router.delete("/:productId", async (req: Request<ProductParam>, res: Response<DeleteResponse | ErrorResponse>) => {
-  const productId: string = req.params.productId;
+router.delete(
+  "/:productId",
+  async (req: Request<ProductParam>, res: Response<OperationResult<Product> | ErrorResponse>) => {
+    const productId: string = req.params.productId;
 
-  try {
-    let result: DeleteCommandOutput = await db.send(
-      new DeleteCommand({
-        TableName: myTable,
-        Key: {
-          pk: "products",
-          sk: productId,
-        },
-        ConditionExpression: "attribute_exists(sk)",
-        ReturnValues: "ALL_OLD",
-      })
-    );
+    try {
+      let result: DeleteCommandOutput = await db.send(
+        new DeleteCommand({
+          TableName: myTable,
+          Key: {
+            pk: "products",
+            sk: productId,
+          },
+          ConditionExpression: "attribute_exists(sk)",
+          ReturnValues: "ALL_OLD",
+        })
+      );
 
-    const deletedProduct: Product | null = result.Attributes ? (result.Attributes as Product) : null;
+      const deletedProduct: Product | null = result.Attributes ? (result.Attributes as Product) : null;
 
-    res.status(200).send({
-      success: true,
-      message: "The product has been removed.",
-      deleted: deletedProduct,
-    });
-  } catch (error) {
-    if ((error as Error).name === "ConditionalCheckFailedException") {
-      res.status(404).send({
-        success: false,
-        message: `${productId} does not exist`,
-        error: (error as Error).message,
+      res.status(200).send({
+        success: true,
+        message: "The product has been removed.",
+        item: deletedProduct,
       });
-    } else {
-      res.status(500).send({
-        success: false,
-        message: "Could not delete product.",
-        error: (error as Error).message,
-      });
+    } catch (error) {
+      if ((error as Error).name === "ConditionalCheckFailedException") {
+        res.status(404).send({
+          success: false,
+          message: `${productId} does not exist`,
+          error: (error as Error).message,
+        });
+      } else {
+        res.status(500).send({
+          success: false,
+          message: "Could not delete product.",
+          error: (error as Error).message,
+        });
+      }
     }
   }
-});
+);
 
-type AddedResponse = {
-  success: boolean;
-  message: string;
-  added: Product | null;
-};
-
-router.post("/", async (req, res: Response<AddedResponse | ErrorResponse>) => {
+router.post("/", async (req, res: Response<OperationResult<Product> | ErrorResponse>) => {
   const parsed = ProductSchema.safeParse(req.body);
 
   if (!parsed.success) {
     res.status(400).send({
       success: parsed.success,
       message: "The product information is invalid.",
-      error: parsed.error,
+      error: parsed.error.message,
     });
 
     return;
@@ -142,20 +138,12 @@ router.post("/", async (req, res: Response<AddedResponse | ErrorResponse>) => {
     })
   );
 
-  const addedProduct = result.Attributes ? (result.Attributes as Product) : null;
-
   res.status(201).send({
     success: true,
     message: "The product has been added.",
-    added: addedProduct,
+    item: newProduct,
   });
 });
-
-type UpdatedResponse = {
-  success: boolean;
-  message: string;
-  updated: UpdatedProduct | null;
-};
 
 type UpdatedProduct = {
   image: string;
@@ -164,56 +152,59 @@ type UpdatedProduct = {
   name: string;
 };
 
-router.put("/:productId", async (req: Request<ProductParam>, res: Response<UpdatedResponse | ErrorResponse>) => {
-  const productId: string = req.params.productId;
+router.put(
+  "/:productId",
+  async (req: Request<ProductParam>, res: Response<OperationResult<UpdatedProduct> | ErrorResponse>) => {
+    const productId: string = req.params.productId;
 
-  const parsed = UpdateProductSchema.safeParse(req.body);
+    const parsed = UpdateProductSchema.safeParse(req.body);
 
-  if (!parsed.success) {
-    res.status(400).send({
-      success: parsed.success,
-      message: "The product information is invalid.",
-      error: parsed.error,
-    });
+    if (!parsed.success) {
+      res.status(400).send({
+        success: parsed.success,
+        message: "The product information is invalid.",
+        error: parsed.error.message,
+      });
 
-    return;
+      return;
+    }
+
+    const updatedProduct = parsed.data;
+
+    try {
+      let result = await db.send(
+        new UpdateCommand({
+          TableName: myTable,
+          Key: {
+            pk: "products",
+            sk: productId,
+          },
+          UpdateExpression: "SET image = :i, amountStock = :a, price = :p, name = :n",
+          ExpressionAttributeValues: {
+            ":i": updatedProduct.image,
+            ":a": updatedProduct.amountStock,
+            ":p": updatedProduct.price,
+            ":n": updatedProduct.name,
+          },
+          ReturnValues: "ALL_NEW",
+        })
+      );
+
+      const newProduct: UpdatedProduct | null = result.Attributes ? (result.Attributes as UpdatedProduct) : null;
+
+      res.status(200).send({
+        success: true,
+        message: "Product updated.",
+        item: newProduct,
+      });
+    } catch (error) {
+      res.status(500).send({
+        success: false,
+        message: "Could not edit product.",
+        error: (error as Error).message,
+      });
+    }
   }
-
-  const updatedProduct = parsed.data;
-
-  try {
-    let result = await db.send(
-      new UpdateCommand({
-        TableName: myTable,
-        Key: {
-          pk: "products",
-          sk: productId,
-        },
-        UpdateExpression: "SET image = :i, amountStock = :a, price = :p, name = :n",
-        ExpressionAttributeValues: {
-          ":i": updatedProduct.image,
-          ":a": updatedProduct.amountStock,
-          ":p": updatedProduct.price,
-          ":n": updatedProduct.name,
-        },
-        ReturnValues: "ALL_NEW",
-      })
-    );
-
-    const newProduct: UpdatedProduct | null = result.Attributes ? (result.Attributes as Product) : null;
-
-    res.status(200).send({
-      success: true,
-      message: "Product updated.",
-      updated: newProduct,
-    });
-  } catch (error) {
-    res.status(500).send({
-      success: false,
-      message: "Could not edit product.",
-      error: (error as Error).message,
-    });
-  }
-});
+);
 
 export default router;
