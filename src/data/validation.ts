@@ -21,11 +21,11 @@ const ProductSchema = z.object({
   name: z.string().min(1),
 });
 
-const NewProductSchema = z.object({
+const UpdateProductSchema = z.object({
   image: z.string(),
   amountStock: z.number(),
   price: z.number(),
   name: z.string().min(1),
 });
 
-export { userSchema, ProductSchema, NewProductSchema };
+export { userSchema, ProductSchema, UpdateProductSchema };
