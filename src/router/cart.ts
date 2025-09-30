@@ -3,15 +3,12 @@ import type { Request, Response, Router } from "express";
 import { db, myTable } from "../data/db.js";
 import { QueryCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { v4 as uuidv4 } from "uuid";
-import type { CartItem, SuccessResponse, ErrorResponse } from "../data/types.js";
+import type { CartItem, ErrorResponse } from "../data/types.js";
 import * as z from "zod";
 
 const router: Router = express.Router();
 
-//Delete hela kundvagn
-//Delete en produkt
-
-// Zod-scheman / flytta sen 
+//Zod-scheman
 const CartItemCreateZ = z.object({
   productId: z.string().min(1),
   amount: z.number().int().min(1),
@@ -21,10 +18,17 @@ const CartItemUpdateZ = z.object({
   amount: z.number().int().min(1),
 });
 
-// GET Hämta användarens cart
+//
+type SuccessResponse<T> = {
+  success: true;
+  count: number;
+  items: T[];
+};
+
+// GET Hämta användarens cart 
 router.get(
   "/:userId",
-  async (req: Request<{ userId: string }>, res: Response<SuccessResponse | ErrorResponse>) => {
+  async (req: Request<{ userId: string }>, res: Response<SuccessResponse<CartItem> | ErrorResponse>) => {
     try {
       const userId = req.params.userId;
 
@@ -87,7 +91,7 @@ router.get(
         }
       }
 
-      const response: SuccessResponse = {
+      const response: SuccessResponse<CartItem> = {
         success: true,
         count: cartItems.length,
         items: cartItems,
@@ -108,7 +112,7 @@ router.get(
 // POST Lägg till produkt i cart
 router.post(
   "/:userId",
-  async (req: Request<{ userId: string }>, res: Response<SuccessResponse | ErrorResponse>) => {
+  async (req: Request<{ userId: string }>, res: Response<SuccessResponse<CartItem> | ErrorResponse>) => {
     try {
       const userId = req.params.userId;
 
@@ -133,7 +137,7 @@ router.post(
         })
       );
 
-      const response: SuccessResponse = {
+      const response: SuccessResponse<CartItem> = {
         success: true,
         count: 1,
         items: [newCartItem],
@@ -151,10 +155,10 @@ router.post(
   }
 );
 
-// PUT Uppdatera antal på cart item
+// PUT Uppdatera antal 
 router.put(
   "/:userId/:cartId",
-  async (req: Request<{ userId: string; cartId: string }>, res: Response<SuccessResponse | ErrorResponse>) => {
+  async (req: Request<{ userId: string; cartId: string }>, res: Response<SuccessResponse<CartItem> | ErrorResponse>) => {
     try {
       const { userId, cartId } = req.params;
 
@@ -194,7 +198,7 @@ router.put(
         amount: result.Attributes.amount,
       };
 
-      const response: SuccessResponse = {
+      const response: SuccessResponse<CartItem> = {
         success: true,
         count: 1,
         items: [updatedItem],
