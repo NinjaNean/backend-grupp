@@ -2,118 +2,214 @@ import express from "express";
 import type { Request, Response, Router } from "express";
 import { db, myTable } from "../data/db.js";
 import { QueryCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { v4 as uuidv4 } from "uuid";
+import type { CartItem, SuccessResponse, ErrorResponse } from "../data/types.js";
+import * as z from "zod";
 
 const router: Router = express.Router();
 
-//DELETE för att radera en specifik produkt i en användares kundvagn.
-//DELETE för att radera hela användares kundvagn.
+//Delete hela kundvagn
+//Delete en produkt
 
-//lägga till request/response?
+// Zod-scheman / flytta sen 
+const CartItemCreateZ = z.object({
+  productId: z.string().min(1),
+  amount: z.number().int().min(1),
+});
 
-type CartItem = {
-  id: string;
-  userId: string;
-  productId: string;
-  amount: number;
-};
+const CartItemUpdateZ = z.object({
+  amount: z.number().int().min(1),
+});
 
-// GET Hämta användarinfo och produkter i användarens cart
-router.get("/:userId", async (req: Request, res: Response) => {
-  try {
-    const userId = req.params.userId; // useru1 eller useru2
+// GET Hämta användarens cart
+router.get(
+  "/:userId",
+  async (req: Request<{ userId: string }>, res: Response<SuccessResponse | ErrorResponse>) => {
+    try {
+      const userId = req.params.userId;
 
-    const result = await db.send(new QueryCommand({
-      TableName: myTable,
-      KeyConditionExpression: "pk = :pk",
-      ExpressionAttributeValues: {
-        ":pk": userId
+      // Hämta användarens meta
+      const userResult = await db.send(
+        new QueryCommand({
+          TableName: myTable,
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :metaPrefix)",
+          ExpressionAttributeValues: {
+            ":pk": userId,
+            ":metaPrefix": "meta",
+          },
+        })
+      );
+
+      if (!userResult.Items || userResult.Items.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+          error: "No user with that ID",
+        });
       }
-    }));
 
-    const items = result.Items || [];
+      // Hämta cart-items
+      const cartResult = await db.send(
+        new QueryCommand({
+          TableName: myTable,
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :cartPrefix)",
+          ExpressionAttributeValues: {
+            ":pk": userId,
+            ":cartPrefix": "cart",
+          },
+        })
+      );
 
-    // Separera meta och produkter i cart 
-    const meta = items.find((item: any) => item.sk === "meta") || {};
-    const cartItems = items
-      .filter((item: any) => item.sk.startsWith("cart"))
-      .map((item: any) => ({
-        id: item.sk,
-        userId: userId,
-        productId: item.productId ?? "",
-        amount: Number(item.amount ?? 1),
-      }));
+      if (!cartResult.Items) {
+        return res.status(404).json({
+          success: false,
+          message: "No cart items found",
+          error: "Cart empty",
+        });
+      }
 
-    const response = {
-      userId,
-      name: meta.name ?? "", //inte null eller undefined, annars tom
-      cart: cartItems
-    };
+      // Validera varje item med safeParse
+      const cartItems: CartItem[] = [];
+      for (const item of cartResult.Items) {
+        const parseResult = z.object({
+          sk: z.string(),
+          productId: z.string(),
+          amount: z.number().int().min(1),
+        }).safeParse(item);
 
-    console.log(`GET /cart/${userId}`, response);
-    res.json({ success: true, ...response });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: "Could not fetch the user's cart" });
-  }
-});
+        if (parseResult.success) {
+          cartItems.push({
+            id: parseResult.data.sk,
+            userId,
+            productId: parseResult.data.productId,
+            amount: parseResult.data.amount,
+          });
+        }
+      }
 
+      const response: SuccessResponse = {
+        success: true,
+        count: cartItems.length,
+        items: cartItems,
+      };
 
-// POST Lägg till en produkt i användarens cart
-router.post("/:userId", async (req: Request, res: Response) => {
-  try {
-    const userId = req.params.userId!; 
-    const { productId, amount, price, name } = req.body;
-
-    if (!productId || !amount) {
-      return res.status(400).json({ error: "productId and amount are required" });
+      res.status(200).json(response);
+    } catch (error) {
+      const errResponse: ErrorResponse = {
+        success: false,
+        message: "Could not fetch cart",
+        error: (error as Error).message,
+      };
+      res.status(500).json(errResponse);
     }
-
-    const cartId = `cart${Date.now()}`;
-    const newCartItem: CartItem = { id: cartId, userId, productId, amount };
-
-    const dbItem = { pk: userId, sk: cartId, productId, amount };
-
-    await db.send(new PutCommand({ TableName: myTable, Item: dbItem }));
-
-    console.log("POST /cart/:userId", newCartItem);
-    res.status(201).json({ success: true, item: newCartItem });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: "Could not add product to cart" });
   }
-});
+);
 
-// PUT Uppdatera antal av en produkt i användarens cart
-router.put("/:userId/:cartId", async (req: Request, res: Response) => {
-  try {
-    const { userId, cartId } = req.params; 
-    const { amount } = req.body;
+// POST Lägg till produkt i cart
+router.post(
+  "/:userId",
+  async (req: Request<{ userId: string }>, res: Response<SuccessResponse | ErrorResponse>) => {
+    try {
+      const userId = req.params.userId;
 
-    if (!amount || amount < 1) {
-      return res.status(400).json({ error: "Amount must be at least 1" });
+      const parseResult = CartItemCreateZ.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid input",
+          error: JSON.stringify(parseResult.error.format()),
+        });
+      }
+
+      const { productId, amount } = parseResult.data;
+      const cartId = `cart#${uuidv4()}`;
+
+      const newCartItem: CartItem = { id: cartId, userId, productId, amount };
+
+      await db.send(
+        new PutCommand({
+          TableName: myTable,
+          Item: { pk: userId, sk: cartId, productId, amount },
+        })
+      );
+
+      const response: SuccessResponse = {
+        success: true,
+        count: 1,
+        items: [newCartItem],
+      };
+
+      res.status(201).json(response);
+    } catch (error) {
+      const errResponse: ErrorResponse = {
+        success: false,
+        message: "Could not add product to cart",
+        error: (error as Error).message,
+      };
+      res.status(500).json(errResponse);
     }
-
-    const result = await db.send(new UpdateCommand({
-      TableName: myTable,
-      Key: { pk: userId, sk: cartId },
-      UpdateExpression: "SET amount = :amount",
-      ExpressionAttributeValues: { ":amount": amount },
-      ReturnValues: "ALL_NEW"
-    }));
-
-    const updatedItem: CartItem = {
-      id: result.Attributes?.sk ?? "",
-      userId: result.Attributes?.pk ?? "",   
-      productId: result.Attributes?.productId ?? "",
-      amount: result.Attributes?.amount ?? 1,
-    };
-
-    console.log("PUT /cart/:userId/:cartId ->", updatedItem);
-    res.json({ success: true, item: updatedItem });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: "Could not update cart item" });
   }
-});
+);
+
+// PUT Uppdatera antal på cart item
+router.put(
+  "/:userId/:cartId",
+  async (req: Request<{ userId: string; cartId: string }>, res: Response<SuccessResponse | ErrorResponse>) => {
+    try {
+      const { userId, cartId } = req.params;
+
+      const parseResult = CartItemUpdateZ.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid input",
+          error: JSON.stringify(parseResult.error.format()),
+        });
+      }
+
+      const { amount } = parseResult.data;
+
+      const result = await db.send(
+        new UpdateCommand({
+          TableName: myTable,
+          Key: { pk: userId, sk: cartId },
+          UpdateExpression: "SET amount = :amount",
+          ExpressionAttributeValues: { ":amount": amount },
+          ReturnValues: "ALL_NEW",
+        })
+      );
+
+      if (!result.Attributes) {
+        return res.status(404).json({
+          success: false,
+          message: "Cart item not found",
+          error: "No item with that ID",
+        });
+      }
+
+      const updatedItem: CartItem = {
+        id: result.Attributes.sk,
+        userId,
+        productId: result.Attributes.productId,
+        amount: result.Attributes.amount,
+      };
+
+      const response: SuccessResponse = {
+        success: true,
+        count: 1,
+        items: [updatedItem],
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      const errResponse: ErrorResponse = {
+        success: false,
+        message: "Could not update cart item",
+        error: (error as Error).message,
+      };
+      res.status(500).json(errResponse);
+    }
+  }
+);
 
 export default router;
