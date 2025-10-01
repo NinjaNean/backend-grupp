@@ -3,7 +3,7 @@ import type { Request, Response, Router } from "express";
 import { db, myTable } from "../data/db.js";
 import { DeleteCommand, GetCommand, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { DeleteCommandOutput, PutCommandOutput } from "@aws-sdk/lib-dynamodb";
-import type { ErrorResponse, GetResult, Product, SuccessResponse } from "../data/types.js";
+import type { ErrorResponse, GetResult, OperationResult, Product, SuccessResponse } from "../data/types.js";
 import { ProductSchema, UpdateProductSchema } from "../data/validation.js";
 
 const router: Router = express.Router();
@@ -66,12 +66,6 @@ router.get("/:productId", async (req: Request<ProductParam>, res: Response<objec
     });
   }
 });
-
-type OperationResult<T> = {
-  success: true;
-  message: string;
-  item: T | null;
-};
 
 router.delete(
   "/:productId",
