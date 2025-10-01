@@ -196,4 +196,89 @@ router.put(
   }
 );
 
+
+type CartParams = { userId: string; cartId: string };
+type UserParams = { userId: string };
+
+type DbCartItem = {
+  pk: string;      
+  sk: string;       
+  productId: string;
+  amount: number;
+};
+
+// DELETE: ta bort en specifik produkt
+router.delete(
+  "/:userId/:cartId",
+  async (req: Request<CartParams>, res: Response) => {
+    const { userId, cartId } = req.params;
+
+    try {
+      const result = await db.send(
+        new DeleteCommand({
+          TableName: myTable,
+          Key: { pk: userId, sk: cartId },
+          ReturnValues: "ALL_OLD",
+        })
+      );
+
+      const deleted = result.Attributes as DbCartItem | undefined;
+
+      if (!deleted) {
+        return res.status(404).send({
+          success: false,
+          error: "Produkten finns inte i kundvagnen",
+        });
+      }
+
+      return res.send({
+        success: true,
+        message: "Produkten raderades från kundvagnen",
+        item: deleted,
+      });
+    } catch {
+      return res.status(500).send({
+        success: false,
+        error: "Kunde inte radera produkt från cart",
+      });
+    }
+  }
+);
+
+// DELETE: töm hela kundvagnen
+router.delete("/:userId", async (req: Request<UserParams>, res: Response) => {
+  const { userId } = req.params;
+
+  try {
+    const q = await db.send(
+      new QueryCommand({
+        TableName: myTable,
+        KeyConditionExpression: "pk = :pk AND begins_with(sk, :c)",
+        ExpressionAttributeValues: { ":pk": userId, ":c": "cart" },
+      })
+    );
+
+    const items = (q.Items ?? []) as DbCartItem[];
+
+    await Promise.all(
+      items.map((it) =>
+        db.send(
+          new DeleteCommand({ TableName: myTable, Key: { pk: it.pk, sk: it.sk } })
+        )
+      )
+    );
+
+    return res.send({
+      success: true,
+      message: "Hela kundvagnen raderades",
+      removed: items.length,
+    });
+  } catch {
+    return res.status(500).send({
+      success: false,
+      error: "Kunde inte radera hela carten",
+    });
+  }
+});
+
 export default router;
