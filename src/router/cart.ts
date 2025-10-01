@@ -46,10 +46,10 @@ router.get("/:userId", async (req: Request, res: Response) => {
     };
 
     console.log(`GET /cart/${userId}`, response);
-    res.json({ success: true, ...response });
+    res.send({ success: true, ...response });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, error: "Could not fetch the user's cart" });
+    res.status(500).send({ success: false, error: "Could not fetch the user's cart" });
   }
 });
 
@@ -60,7 +60,7 @@ router.post("/:userId", async (req: Request, res: Response) => {
     const { productId, amount, price, name } = req.body;
 
     if (!productId || !amount) {
-      return res.status(400).json({ error: "productId and amount are required" });
+      return res.status(400).send({ error: "productId and amount are required" });
     }
 
     const cartId = `cart${Date.now()}`;
@@ -71,10 +71,10 @@ router.post("/:userId", async (req: Request, res: Response) => {
     await db.send(new PutCommand({ TableName: myTable, Item: dbItem }));
 
     console.log("POST /cart/:userId", newCartItem);
-    res.status(201).json({ success: true, item: newCartItem });
+    res.status(201).send({ success: true, item: newCartItem });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, error: "Could not add product to cart" });
+    res.status(500).send({ success: false, error: "Could not add product to cart" });
   }
 });
 
@@ -85,7 +85,7 @@ router.put("/:userId/:cartId", async (req: Request, res: Response) => {
     const { amount } = req.body;
 
     if (!amount || amount < 1) {
-      return res.status(400).json({ error: "Amount must be at least 1" });
+      return res.status(400).send({ error: "Amount must be at least 1" });
     }
 
     const result = await db.send(
@@ -106,10 +106,10 @@ router.put("/:userId/:cartId", async (req: Request, res: Response) => {
     };
 
     console.log("PUT /cart/:userId/:cartId ->", updatedItem);
-    res.json({ success: true, item: updatedItem });
+    res.send({ success: true, item: updatedItem });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, error: "Could not update cart item" });
+    res.status(500).send({ success: false, error: "Could not update cart item" });
   }
 });
 
@@ -141,19 +141,19 @@ router.delete(
       const deleted = result.Attributes as DbCartItem | undefined;
 
       if (!deleted) {
-        return res.status(404).json({
+        return res.status(404).send({
           success: false,
           error: "Produkten finns inte i kundvagnen",
         });
       }
 
-      return res.json({
+      return res.send({
         success: true,
         message: "Produkten raderades från kundvagnen",
         item: deleted,
       });
     } catch {
-      return res.status(500).json({
+      return res.status(500).send({
         success: false,
         error: "Kunde inte radera produkt från cart",
       });
@@ -184,13 +184,13 @@ router.delete("/:userId", async (req: Request<UserParams>, res: Response) => {
       )
     );
 
-    return res.json({
+    return res.send({
       success: true,
       message: "Hela kundvagnen raderades",
       removed: items.length,
     });
   } catch {
-    return res.status(500).json({
+    return res.status(500).send({
       success: false,
       error: "Kunde inte radera hela carten",
     });
