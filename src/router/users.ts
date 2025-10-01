@@ -17,15 +17,16 @@ export type GetResult = Record<string, any> | undefined
 router.get("/", async (req, res: Response<GetUsersResponse | ErrorResponse>) => {
   try {
     const result: GetResult = await db.send(
-      new ScanCommand({  // ScanCommand to get entire table
+      new ScanCommand({
+        // ScanCommand to get entire table
         TableName: myTable,
-        FilterExpression: "begins_with(pk, :userPrefix) AND begins_with(sk, :meta)",  // filter for users only
+        FilterExpression: "begins_with(pk, :userPrefix) AND begins_with(sk, :meta)", // filter for users only
         ExpressionAttributeValues: {
-          ":userPrefix": "user",   // all users have pk starting with "user"
-          ":meta": "meta",         // all user meta have sk "meta"
+          ":userPrefix": "user", // all users have pk starting with "user"
+          ":meta": "meta", // all user meta have sk "meta"
         },
       })
-    )
+    );
 
     // const items = result.Items as user[]  // old before successResponse type
     res.status(200).send({   // respond with 200 ok and count of user and the useres
@@ -43,9 +44,9 @@ router.get("/", async (req, res: Response<GetUsersResponse | ErrorResponse>) => 
     //   message: "Could not fetch users" // might need if count is zero sense you cant only get "Cannot GET"
     })
   }
-})
+});
 
-// get user by id 
+// get user by id
 
 router.get("/:id", async (req: Request<UserIdParams>, res: Response<GetUsersResponse | ErrorResponse>) => {
     try {
@@ -59,16 +60,16 @@ router.get("/:id", async (req: Request<UserIdParams>, res: Response<GetUsersResp
         }
         const userId = validationResult.data // get validated user id
 
-        const result: GetResult = await db.send(
-            new QueryCommand({
-                TableName: myTable,
-                KeyConditionExpression: "pk = :user AND begins_with(sk, :meta)", // query for specific user by id
-                ExpressionAttributeValues: {
-                    ":user": userId,
-                    ":meta": "meta",
-                },
+    const result: GetResult = await db.send(
+      new QueryCommand({
+        TableName: myTable,
+        KeyConditionExpression: "pk = :user AND begins_with(sk, :meta)", // query for specific user by id
+        ExpressionAttributeValues: {
+          ":user": userId,
+          ":meta": "meta",
+        },
       })
-    )
+    );
 
 
     res.send({   // respond with 200 ok and count of user and the useres
@@ -89,7 +90,7 @@ router.get("/:id", async (req: Request<UserIdParams>, res: Response<GetUsersResp
     }
 })
 
-// POST create new user 
+// POST create new user
 
 router.post("/", async (req: Request<CreateUserBody>, res: Response<CreateUserSuccessResponse | ErrorResponse>) => {
     try {
@@ -207,4 +208,4 @@ router.put("/:id", async (req: Request<UserIdParams, {}, UpdateUserBody>, res: R
 })
 
 
-export default router
+export default router;
