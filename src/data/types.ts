@@ -1,4 +1,4 @@
-type Product = {
+export type Product = {
   image: string;
   amountStock: number;
   sk: string;
@@ -7,7 +7,13 @@ type Product = {
   name: string;
 };
 
-export interface user {
+export type OperationResult<T> = {
+  success: true;
+  message: string;
+  item: T | null;
+};
+
+export interface User {
   pk: string;
   sk: string;
   name: string;
@@ -23,7 +29,7 @@ export type CartItem = {
 export type SuccessResponse = {
   success: boolean;
   count: number;
-  items: Product[] | user[] | CartItem[];
+  items: Product[] | User[] | CartItem[];
 };
 
 export type ErrorResponse = {
@@ -33,17 +39,6 @@ export type ErrorResponse = {
 };
 
 export type GetResult = Record<string, any> | undefined;
-
-
-
-
-// user types here is user response and request types - Start here 
-export interface User {
-    pk: string
-    sk: string
-    name: string
-}
-
 
 // user response types
 export type GetUsersResponse = {
@@ -57,7 +52,6 @@ export type CreateUserSuccessResponse = {
     message: string
     user: User
 }
-
 
 export type DeleteUserSuccessResponse = {
     success: true
@@ -81,4 +75,3 @@ export interface UpdateUserBody {
     sk: string
     name: string
 }
-

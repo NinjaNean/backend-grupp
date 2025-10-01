@@ -2,7 +2,7 @@ import { GetCommand, QueryCommand, ScanCommand, PutCommand, DeleteCommand } from
 import express from "express"
 import type { Request, Response, Router } from "express"
 import { db, myTable } from "../data/db.js"
-import  { userIdSchema, userSchema } from "../data/validation.js"
+import  { UserIdSchema, UserSchema } from "../data/validation.js"
 import type { CreateUserBody, CreateUserSuccessResponse, DeleteUserSuccessResponse, ErrorResponse, GetUsersResponse, UpdateUserBody, User, UserIdParams } from "../data/types.js"
 
 
@@ -50,7 +50,7 @@ router.get("/", async (req, res: Response<GetUsersResponse | ErrorResponse>) => 
 
 router.get("/:id", async (req: Request<UserIdParams>, res: Response<GetUsersResponse | ErrorResponse>) => {
     try {
-        const validationResult = userIdSchema.safeParse(req.params.id ) // validate user id from params
+        const validationResult = UserIdSchema.safeParse(req.params.id ) // validate user id from params
         if (!validationResult.success) {  // if validation fails
             return res.status(400).send({
                 success: false,
@@ -94,7 +94,7 @@ router.get("/:id", async (req: Request<UserIdParams>, res: Response<GetUsersResp
 
 router.post("/", async (req: Request<CreateUserBody>, res: Response<CreateUserSuccessResponse | ErrorResponse>) => {
     try {
-        let validationResult = userSchema.safeParse(req.body) // validate input data
+        let validationResult = UserSchema.safeParse(req.body) // validate input data
 
         if (!validationResult.success) {   // if validation fails
             return res.status(400).send({
@@ -131,7 +131,7 @@ router.post("/", async (req: Request<CreateUserBody>, res: Response<CreateUserSu
 
 router.delete("/:id", async (req: Request<UserIdParams>, res: Response<DeleteUserSuccessResponse | ErrorResponse>) => {
     try {
-        const validationResult = userIdSchema.safeParse( req.params.id ) // validate user id from params
+        const validationResult = UserIdSchema.safeParse( req.params.id ) // validate user id from params
          if (!validationResult.success) {
             return res.status(400).send({
                 success: false,
@@ -167,7 +167,7 @@ router.delete("/:id", async (req: Request<UserIdParams>, res: Response<DeleteUse
 router.put("/:id", async (req: Request<UserIdParams, {}, UpdateUserBody>, res: Response<CreateUserSuccessResponse | ErrorResponse>) => {
     try {
         const userId = req.params.id
-        let validationResult = userSchema.safeParse(req.body) // validate input data
+        let validationResult = UserSchema.safeParse(req.body) // validate input data
 
         if (!validationResult.success) {  // if validation fails
             return res.status(400).send({
