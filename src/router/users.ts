@@ -75,10 +75,17 @@ router.get("/:id", async (req: Request<IdParam>, res: Response<SuccessResponse<U
           ":meta": "meta",
         },
       })
-    );
+    )
+   if (!result.Items || result.Items.length === 0) {
+    return res.status(404).send({
+        success: false,
+        error: "Empty item",
+        message: "User not found"
+    })
+}
 
 
-    res.send({   // respond with 200 ok and count of user and the useres
+    res.status(200).send({   // respond with 200 ok and count of user and the useres
     //    count: result.Count,
     //     items
        
@@ -87,7 +94,7 @@ router.get("/:id", async (req: Request<IdParam>, res: Response<SuccessResponse<U
         items: result.Items ?? []
     }) 
     } catch (error) {
-        res.send({
+        res.status(500).send({
             success: false,
             error: (error as Error).message,
             message: "Could not fetch by Id" // 
