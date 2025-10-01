@@ -159,7 +159,7 @@ router.delete("/:id", async (req: Request<IdParam>, res: Response<OperationResul
         res.status(204).send({
             success: true,
             message: "User deleted successfully",
-            // TODO: Lägg till item: user | null
+            item: null // TODO: ändra så att det kan bli user-objektet
         }) // no content
     } catch (error) {
         res.status(500).send({
