@@ -4,7 +4,7 @@ import { db, myTable } from "../data/db.js";
 import { QueryCommand, PutCommand, UpdateCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
 import { v4 as uuidv4 } from "uuid";
 import type { CartItem, ErrorResponse } from "../data/types.js";
-import { CartItemCreateZ, CartItemUpdateZ } from "../data/validation.js";
+/*import { CartItemCreateZ, CartItemUpdateZ } from "../data/validation.js";*/
 
 
 /*export const CartItemCreateZ = z.object({
