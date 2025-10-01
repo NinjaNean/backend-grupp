@@ -3,7 +3,7 @@ import express from "express"
 import type { Request, Response, Router } from "express"
 import { db, myTable } from "../data/db.js"
 import  { UserIdSchema, UserSchema } from "../data/validation.js"
-import type { CreateUserBody, CreateUserSuccessResponse, DeleteUserSuccessResponse, ErrorResponse, GetUsersResponse, UpdateUserBody, User, UserIdParams } from "../data/types.js"
+import type { CreateUserBody, ErrorResponse, OperationResult, SuccessResponse, UpdateUserBody, IdParam } from "../data/types.js"
 
 
 
@@ -11,10 +11,16 @@ const router: Router = express.Router()
 
 export type GetResult = Record<string, any> | undefined
 
+interface User {
+  pk: string;
+  sk: string;
+  name: string;
+}
+
 
 // get all users
 
-router.get("/", async (req, res: Response<GetUsersResponse | ErrorResponse>) => {
+router.get("/", async (req, res: Response<SuccessResponse<User> | ErrorResponse>) => {
   try {
     const result: GetResult = await db.send(
       new ScanCommand({
@@ -31,7 +37,7 @@ router.get("/", async (req, res: Response<GetUsersResponse | ErrorResponse>) => 
     // const items = result.Items as user[]  // old before successResponse type
     res.status(200).send({   // respond with 200 ok and count of user and the useres
         success: true ,  // added success true to match successResponse type
-        counter: result.Count ?? 0, // ?? = nullish coalescing operator if null or undefined then 0
+        count: result.Count ?? 0, // ?? = nullish coalescing operator if null or undefined then 0
         items: result.Items ?? [] 
     }) 
     
@@ -48,7 +54,7 @@ router.get("/", async (req, res: Response<GetUsersResponse | ErrorResponse>) => 
 
 // get user by id
 
-router.get("/:id", async (req: Request<UserIdParams>, res: Response<GetUsersResponse | ErrorResponse>) => {
+router.get("/:id", async (req: Request<IdParam>, res: Response<SuccessResponse<User> | ErrorResponse>) => {
     try {
         const validationResult = UserIdSchema.safeParse(req.params.id ) // validate user id from params
         if (!validationResult.success) {  // if validation fails
@@ -77,7 +83,7 @@ router.get("/:id", async (req: Request<UserIdParams>, res: Response<GetUsersResp
     //     items
        
         success: true,
-        counter: result.count ?? 0,
+        count: result.count ?? 0,
         items: result.Items ?? []
     }) 
     } catch (error) {
@@ -92,7 +98,7 @@ router.get("/:id", async (req: Request<UserIdParams>, res: Response<GetUsersResp
 
 // POST create new user
 
-router.post("/", async (req: Request<CreateUserBody>, res: Response<CreateUserSuccessResponse | ErrorResponse>) => {
+router.post("/", async (req: Request<CreateUserBody>, res: Response<OperationResult<User> | ErrorResponse>) => {
     try {
         let validationResult = UserSchema.safeParse(req.body) // validate input data
 
@@ -114,7 +120,7 @@ router.post("/", async (req: Request<CreateUserBody>, res: Response<CreateUserSu
         res.status(201).send({
             success: true,
             message: "User created successfully",
-            user: newUser
+            item: newUser
         })
     }
     catch (error) {
@@ -129,7 +135,7 @@ router.post("/", async (req: Request<CreateUserBody>, res: Response<CreateUserSu
 
 // DELETE user by id
 
-router.delete("/:id", async (req: Request<UserIdParams>, res: Response<DeleteUserSuccessResponse | ErrorResponse>) => {
+router.delete("/:id", async (req: Request<IdParam>, res: Response<OperationResult<User> | ErrorResponse>) => {
     try {
         const validationResult = UserIdSchema.safeParse( req.params.id ) // validate user id from params
          if (!validationResult.success) {
@@ -152,7 +158,8 @@ router.delete("/:id", async (req: Request<UserIdParams>, res: Response<DeleteUse
         }))
         res.status(204).send({
             success: true,
-            message: "User deleted successfully"
+            message: "User deleted successfully",
+            // TODO: Lägg till item: user | null
         }) // no content
     } catch (error) {
         res.status(500).send({
@@ -164,7 +171,7 @@ router.delete("/:id", async (req: Request<UserIdParams>, res: Response<DeleteUse
 })
 
 // PUT update user by Id 
-router.put("/:id", async (req: Request<UserIdParams, {}, UpdateUserBody>, res: Response<CreateUserSuccessResponse | ErrorResponse>) => {
+router.put("/:id", async (req: Request<IdParam, {}, UpdateUserBody>, res: Response<OperationResult<User> | ErrorResponse>) => {
     try {
         const userId = req.params.id
         let validationResult = UserSchema.safeParse(req.body) // validate input data
@@ -195,7 +202,7 @@ router.put("/:id", async (req: Request<UserIdParams, {}, UpdateUserBody>, res: R
         res.status(200).send({
             success: true,
             message: "User updated successfully",
-            user: updatedUser
+            item: updatedUser
         })
     }
     catch (error) {

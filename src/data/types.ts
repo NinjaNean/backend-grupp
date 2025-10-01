@@ -1,23 +1,9 @@
-export type Product = {
-  image: string;
-  amountStock: number;
-  sk: string;
-  pk: string;
-  price: number;
-  name: string;
-};
-
+// success response for DELETE, PUT and POST.
 export type OperationResult<T> = {
   success: true;
   message: string;
   item: T | null;
 };
-
-export interface User {
-  pk: string;
-  sk: string;
-  name: string;
-}
 
 export type CartItem = {
   id: string;
@@ -26,12 +12,14 @@ export type CartItem = {
   amount: number;
 };
 
-export type SuccessResponse = {
+// success response for GET
+export type SuccessResponse<T> = {
   success: boolean;
   count: number;
-  items: Product[] | User[] | CartItem[];
+  items: T[] | T;
 };
 
+// Error response for all endpoints
 export type ErrorResponse = {
   success: boolean;
   message: string;
@@ -40,26 +28,8 @@ export type ErrorResponse = {
 
 export type GetResult = Record<string, any> | undefined;
 
-// user response types
-export type GetUsersResponse = {
-    success: true
-    counter: number
-    items: User[]
-}
- // post and put share response type
-export type CreateUserSuccessResponse = {
-    success: true
-    message: string
-    user: User
-}
-
-export type DeleteUserSuccessResponse = {
-    success: true
-    message: string
-}
-
-// user request types
-export interface UserIdParams {
+// for url-params
+export interface IdParam {
     id: string
 }
 

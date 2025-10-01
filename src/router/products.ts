@@ -3,16 +3,21 @@ import type { Request, Response, Router } from "express";
 import { db, myTable } from "../data/db.js";
 import { DeleteCommand, GetCommand, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { DeleteCommandOutput, PutCommandOutput } from "@aws-sdk/lib-dynamodb";
-import type { ErrorResponse, GetResult, OperationResult, Product, SuccessResponse } from "../data/types.js";
+import type { ErrorResponse, GetResult, IdParam, OperationResult, SuccessResponse } from "../data/types.js";
 import { ProductSchema, UpdateProductSchema } from "../data/validation.js";
 
 const router: Router = express.Router();
 
-type ProductParam = {
-  productId: string;
+type Product = {
+  image: string;
+  amountStock: number;
+  sk: string;
+  pk: string;
+  price: number;
+  name: string;
 };
 
-router.get("/", async (req, res: Response<SuccessResponse | ErrorResponse>) => {
+router.get("/", async (req, res: Response<SuccessResponse<Product> | ErrorResponse>) => {
   try {
     const result: GetResult = await db.send(
       new QueryCommand({
@@ -40,8 +45,8 @@ router.get("/", async (req, res: Response<SuccessResponse | ErrorResponse>) => {
 });
 
 // TODO: byt ut object
-router.get("/:productId", async (req: Request<ProductParam>, res: Response<object | ErrorResponse>) => {
-  const productId: string = req.params.productId;
+router.get("/:productId", async (req: Request<IdParam>, res: Response<object | ErrorResponse>) => {
+  const productId: string = req.params.id;
 
   try {
     const result = await db.send(
@@ -69,8 +74,8 @@ router.get("/:productId", async (req: Request<ProductParam>, res: Response<objec
 
 router.delete(
   "/:productId",
-  async (req: Request<ProductParam>, res: Response<OperationResult<Product> | ErrorResponse>) => {
-    const productId: string = req.params.productId;
+  async (req: Request<IdParam>, res: Response<OperationResult<Product> | ErrorResponse>) => {
+    const productId: string = req.params.id;
 
     try {
       let result: DeleteCommandOutput = await db.send(
@@ -148,8 +153,8 @@ type UpdatedProduct = {
 
 router.put(
   "/:productId",
-  async (req: Request<ProductParam>, res: Response<OperationResult<UpdatedProduct> | ErrorResponse>) => {
-    const productId: string = req.params.productId;
+  async (req: Request<IdParam>, res: Response<OperationResult<UpdatedProduct> | ErrorResponse>) => {
+    const productId: string = req.params.id;
 
     const parsed = UpdateProductSchema.safeParse(req.body);
 
