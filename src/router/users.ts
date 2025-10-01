@@ -49,7 +49,7 @@ router.get("/", async (req, res: Response<GetUsersResponse | ErrorResponse>) => 
 
 router.get("/:id", async (req: Request<UserIdParams>, res: Response<GetUsersResponse | ErrorResponse>) => {
     try {
-        const validationResult = userIdSchema.safeParse({ userId: req.params.id }) // validate user id from params
+        const validationResult = userIdSchema.safeParse(req.params.id ) // validate user id from params
         if (!validationResult.success) {  // if validation fails
             return res.status(400).send({
                 success: false,
@@ -57,8 +57,7 @@ router.get("/:id", async (req: Request<UserIdParams>, res: Response<GetUsersResp
                 message: "Invalid user ID"
             })
         }
-        const userId = validationResult.data.userId  // get validated user id
-        
+        const userId = validationResult.data // get validated user id
 
         const result: GetResult = await db.send(
             new QueryCommand({
@@ -131,7 +130,7 @@ router.post("/", async (req: Request<CreateUserBody>, res: Response<CreateUserSu
 
 router.delete("/:id", async (req: Request<UserIdParams>, res: Response<DeleteUserSuccessResponse | ErrorResponse>) => {
     try {
-        const validationResult = userIdSchema.safeParse({ userId: req.params.id }) // validate user id from params
+        const validationResult = userIdSchema.safeParse( req.params.id ) // validate user id from params
          if (!validationResult.success) {
             return res.status(400).send({
                 success: false,
@@ -140,7 +139,7 @@ router.delete("/:id", async (req: Request<UserIdParams>, res: Response<DeleteUse
             })
         }
 
-        const userId = validationResult.data.userId
+        const userId = validationResult.data
 
         await db.send(new DeleteCommand({
             TableName: myTable,
