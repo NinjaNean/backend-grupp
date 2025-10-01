@@ -7,4 +7,7 @@ const userSchema = z.object({
     name: z.string().min(1)                  // name must be a non-empty string
     })
 
-export  { userSchema }
+const userIdSchema = z.string().min(1).regex(/^user/) // id must start with "user"
+
+
+export  { userSchema, userIdSchema }

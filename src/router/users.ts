@@ -1,32 +1,20 @@
-import { GetCommand, QueryCommand, ScanCommand, PutCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
-import express from "express";
-import type { Request, Response, Router } from "express";
-import { db, myTable } from "../data/db.js";
-import { userSchema } from "../data/validation.js";
-import type { GetResult, user } from "../data/types.js";
+import { GetCommand, QueryCommand, ScanCommand, PutCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb"
+import express from "express"
+import type { Request, Response, Router } from "express"
+import { db, myTable } from "../data/db.js"
+import  { userIdSchema, userSchema } from "../data/validation.js"
+import type { CreateUserBody, CreateUserSuccessResponse, DeleteUserSuccessResponse, ErrorResponse, GetUsersResponse, UpdateUserBody, User, UserIdParams } from "../data/types.js"
 
-const router: Router = express.Router();
+
+
+const router: Router = express.Router()
+
+export type GetResult = Record<string, any> | undefined
+
 
 // get all users
 
-// router.get('/', async (req: Request, res: Response) => {
-//     try {
-//         const scanCommand = new ScanCommand({
-//             TableName: myTable,
-//             FilterExpression: "PK = :pk AND SK = :sk",
-//             ExpressionAttributeValues: {
-//                 ":pk": "user",
-//                 ":sk": "meta"
-//             }
-//         })
-//         const result = await db.send(scanCommand)
-//         res.send(result.Items as user[])
-//     } catch (error) {
-//         res.status(500).send({ error: "Failed to fetch users" })
-//     }
-// })
-
-router.get("/", async (req, res: Response) => {
+router.get("/", async (req, res: Response<GetUsersResponse | ErrorResponse>) => {
   try {
     const result: GetResult = await db.send(
       new ScanCommand({
@@ -40,25 +28,37 @@ router.get("/", async (req, res: Response) => {
       })
     );
 
-    const items = result.Items as user[]; //
-    res.status(200).send({
-      // respond with 200 ok and count of user and the useres
-      count: result.Count ?? 0, // ?? = nullish coalescing operator if null or undefined then 0
-      items,
-    });
+    // const items = result.Items as user[]  // old before successResponse type
+    res.status(200).send({   // respond with 200 ok and count of user and the useres
+        success: true ,  // added success true to match successResponse type
+        counter: result.Count ?? 0, // ?? = nullish coalescing operator if null or undefined then 0
+        items: result.Items ?? [] 
+    }) 
+    
+
   } catch (error) {
     res.status(500).send({
-      message: "Could not fetch users", // might need if count is zero sense you cant only get "Cannot GET"
-    });
+        success: false,
+        error: (error as Error).message,
+        message: "Could not fetch users"
+    //   message: "Could not fetch users" // might need if count is zero sense you cant only get "Cannot GET"
+    })
   }
 });
 
 // get user by id
 
-router.get("/:id", async (req: Request, res: Response) => {
-  try {
-    const userId = req.params.id; // get id from params
-    // const pkValue = `user${userId.substring(1)} // if you want to use u1 instead of useru1 for id search
+router.get("/:id", async (req: Request<UserIdParams>, res: Response<GetUsersResponse | ErrorResponse>) => {
+    try {
+        const validationResult = userIdSchema.safeParse(req.params.id ) // validate user id from params
+        if (!validationResult.success) {  // if validation fails
+            return res.status(400).send({
+                success: false,
+                error: validationResult.error.message,
+                message: "Invalid user ID"
+            })
+        }
+        const userId = validationResult.data // get validated user id
 
     const result: GetResult = await db.send(
       new QueryCommand({
@@ -71,80 +71,141 @@ router.get("/:id", async (req: Request, res: Response) => {
       })
     );
 
-    const items = result.Items as user[]; //
-    res.status(200).send({
-      // respond with 200 ok and count of user and the useres
-      count: result.Count,
-      items,
-    });
-  } catch (error) {
-    res.status(500).send({
-      message: "Could not fetch user by id", //
-    });
-  }
-});
+
+    res.send({   // respond with 200 ok and count of user and the useres
+    //    count: result.Count,
+    //     items
+       
+        success: true,
+        counter: result.count ?? 0,
+        items: result.Items ?? []
+    }) 
+    } catch (error) {
+        res.send({
+            success: false,
+            error: (error as Error).message,
+            message: "Could not fetch by Id" // 
+        })
+        
+    }
+})
 
 // POST create new user
 
-router.post("/", async (req: Request, res: Response) => {
-  try {
-    let newUser: user = userSchema.parse(req.body); // validate input data
+router.post("/", async (req: Request<CreateUserBody>, res: Response<CreateUserSuccessResponse | ErrorResponse>) => {
+    try {
+        let validationResult = userSchema.safeParse(req.body) // validate input data
 
-    await db.send(
-      new PutCommand({
-        TableName: myTable,
-        Item: newUser,
-        ConditionExpression: "attribute_not_exists(pk)", // prevent overwriting existing user
-      })
-    );
-    res.status(201).send(newUser);
-  } catch (error) {
-    res.status(500).send({ error: "Failed to add user", details: error });
-  }
-});
+        if (!validationResult.success) {   // if validation fails
+            return res.status(400).send({
+                success: false,
+                error: validationResult.error.message,
+                message: "Invalid user data"
+            })
+        }
+
+        const newUser = validationResult.data  // get validated data
+
+        await db.send(new PutCommand({
+            TableName: myTable,
+            Item: newUser,
+            ConditionExpression: "attribute_not_exists(pk)" // prevent overwriting existing user
+        }))
+        res.status(201).send({
+            success: true,
+            message: "User created successfully",
+            user: newUser
+        })
+    }
+    catch (error) {
+
+        res.status(500).send({
+            success: false,
+            error: (error as Error).message,
+            message: "failed to create user"
+        })
+    }
+})
 
 // DELETE user by id
 
-router.delete("/:id", async (req: Request, res: Response) => {
-  try {
-    const userId = req.params.id;
+router.delete("/:id", async (req: Request<UserIdParams>, res: Response<DeleteUserSuccessResponse | ErrorResponse>) => {
+    try {
+        const validationResult = userIdSchema.safeParse( req.params.id ) // validate user id from params
+         if (!validationResult.success) {
+            return res.status(400).send({
+                success: false,
+                error: validationResult.error.message,
+                message: "Invalid user ID format"
+            })
+        }
 
-    await db.send(
-      new DeleteCommand({
-        TableName: myTable,
-        Key: {
-          pk: userId,
-          sk: "meta",
-        },
-        ConditionExpression: "attribute_exists(pk)", // ensure user exists
-      })
-    );
-    res.status(204).send(); // no content
-  } catch (error) {
-    res.status(500).send({ error: "Failed to delete user", details: error });
-  }
-});
+        const userId = validationResult.data
 
-// PUT update user by Id
-router.put("/:id", async (req: Request, res: Response) => {
-  try {
-    const userId = req.params.id;
-    let updatedUser: user = userSchema.parse(req.body); // validate input data
-    if (userId !== updatedUser.pk) {
-      // ensure id in url matches id in body, so we dont get diffrent ids
-      return res.status(400).send({ error: "User ID in URL and body do not match" });
+        await db.send(new DeleteCommand({
+            TableName: myTable,
+            Key: {
+                pk: userId,
+                sk: "meta"
+            },
+            ConditionExpression: "attribute_exists(pk)" // ensure user exists
+        }))
+        res.status(204).send({
+            success: true,
+            message: "User deleted successfully"
+        }) // no content
+    } catch (error) {
+        res.status(500).send({
+            success: false,
+            error: (error as Error).message,
+            message: "Failed to delete user"
+        })
     }
-    await db.send(
-      new PutCommand({
-        TableName: myTable,
-        Item: updatedUser,
-        ConditionExpression: "attribute_exists(pk)", // ensure user exists
-      })
-    );
-    res.status(200).send(updatedUser);
-  } catch (error) {
-    res.status(500).send({ error: "Failed to update user", details: error });
-  }
-});
+})
+
+// PUT update user by Id 
+router.put("/:id", async (req: Request<UserIdParams, {}, UpdateUserBody>, res: Response<CreateUserSuccessResponse | ErrorResponse>) => {
+    try {
+        const userId = req.params.id
+        let validationResult = userSchema.safeParse(req.body) // validate input data
+
+        if (!validationResult.success) {  // if validation fails
+            return res.status(400).send({
+                success: false,
+                error: validationResult.error.message,
+                message: "Invalid user data"
+            })
+        }
+        const updatedUser = validationResult.data  // get validated data
+
+        if (userId !== updatedUser.pk) {  // ensure id in url matches id in body, so we dont get diffrent ids 
+            return res.status(400).send({
+                success: false,
+                error: "ID mismatch",
+                message: "User ID in URL and body do not match"
+            })
+        }
+
+        await db.send(new PutCommand({
+            TableName: myTable,
+            Item: updatedUser,
+            ConditionExpression: "attribute_exists(pk)" // ensure user exists
+        }))
+
+        res.status(200).send({
+            success: true,
+            message: "User updated successfully",
+            user: updatedUser
+        })
+    }
+    catch (error) {
+        res.status(500).send({
+            success: false,
+            error: (error as Error).message,
+            message: "Failed to update user"
+        })
+    }
+})
+
 
 export default router;
