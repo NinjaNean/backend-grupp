@@ -72,50 +72,47 @@ router.get("/:productId", async (req: Request<IdParam>, res: Response<object | E
   }
 });
 
-router.delete(
-  "/:productId",
-  async (req: Request<IdParam>, res: Response<OperationResult<Product> | ErrorResponse>) => {
-    const productId: string = req.params.id;
+router.delete("/:productId", async (req: Request<IdParam>, res: Response<OperationResult<Product> | ErrorResponse>) => {
+  const productId: string = req.params.id;
 
-    try {
-      let result: DeleteCommandOutput = await db.send(
-        new DeleteCommand({
-          TableName: myTable,
-          Key: {
-            pk: "products",
-            sk: productId,
-          },
-          ConditionExpression: "attribute_exists(sk)",
-          ReturnValues: "ALL_OLD",
-        })
-      );
+  try {
+    let result: DeleteCommandOutput = await db.send(
+      new DeleteCommand({
+        TableName: myTable,
+        Key: {
+          pk: "products",
+          sk: productId,
+        },
+        ConditionExpression: "attribute_exists(sk)",
+        ReturnValues: "ALL_OLD",
+      })
+    );
 
-      const deletedProduct: Product | null = result.Attributes ? (result.Attributes as Product) : null;
+    const deletedProduct: Product | null = result.Attributes ? (result.Attributes as Product) : null;
 
-      res.status(200).send({
-        success: true,
-        message: "The product has been removed.",
-        item: deletedProduct,
+    res.status(200).send({
+      success: true,
+      message: "The product has been removed.",
+      item: deletedProduct,
+    });
+  } catch (error) {
+    if ((error as Error).name === "ConditionalCheckFailedException") {
+      res.status(404).send({
+        success: false,
+        message: `${productId} does not exist`,
+        error: (error as Error).message,
       });
-    } catch (error) {
-      if ((error as Error).name === "ConditionalCheckFailedException") {
-        res.status(404).send({
-          success: false,
-          message: `${productId} does not exist`,
-          error: (error as Error).message,
-        });
-      } else {
-        res.status(500).send({
-          success: false,
-          message: "Could not delete product.",
-          error: (error as Error).message,
-        });
-      }
+    } else {
+      res.status(500).send({
+        success: false,
+        message: "Could not delete product.",
+        error: (error as Error).message,
+      });
     }
   }
-);
+});
 
-router.post("/", async (req, res: Response<OperationResult<Product> | ErrorResponse>) => {
+router.post("/", async (req: Request<Product>, res: Response<OperationResult<Product> | ErrorResponse>) => {
   const parsed = ProductSchema.safeParse(req.body);
 
   if (!parsed.success) {
@@ -130,18 +127,35 @@ router.post("/", async (req, res: Response<OperationResult<Product> | ErrorRespo
 
   const newProduct = parsed.data;
 
-  let result: PutCommandOutput = await db.send(
-    new PutCommand({
-      TableName: myTable,
-      Item: newProduct,
-    })
-  );
+  try {
+    let result: PutCommandOutput = await db.send(
+      new PutCommand({
+        TableName: myTable,
+        Item: newProduct,
+        ConditionExpression: "attribute_not_exists(sk)",
+      })
+    );
 
-  res.status(201).send({
-    success: true,
-    message: "The product has been added.",
-    item: newProduct,
-  });
+    res.status(201).send({
+      success: true,
+      message: "The product has been added.",
+      item: newProduct,
+    });
+  } catch (error) {
+    if ((error as Error).name === "ConditionalCheckFailedException") {
+      res.status(409).send({
+        success: false,
+        message: "Product already exists.",
+        error: (error as Error).message,
+      });
+    } else {
+      res.status(500).send({
+        success: false,
+        message: "Could not add new product.",
+        error: (error as Error).message,
+      });
+    }
+  }
 });
 
 type UpdatedProduct = {
@@ -178,13 +192,20 @@ router.put(
             pk: "products",
             sk: productId,
           },
-          UpdateExpression: "SET image = :i, amountStock = :a, price = :p, name = :n",
+          UpdateExpression: "SET #img = :i, #stock = :a, #price = :p, #nm = :n",
+          ExpressionAttributeNames: {
+            "#img": "image",
+            "#stock": "amountStock",
+            "#price": "price",
+            "#nm": "name",
+          },
           ExpressionAttributeValues: {
             ":i": updatedProduct.image,
             ":a": updatedProduct.amountStock,
             ":p": updatedProduct.price,
             ":n": updatedProduct.name,
           },
+          ConditionExpression: "attribute_exists(sk)",
           ReturnValues: "ALL_NEW",
         })
       );
@@ -197,11 +218,19 @@ router.put(
         item: newProduct,
       });
     } catch (error) {
-      res.status(500).send({
-        success: false,
-        message: "Could not edit product.",
-        error: (error as Error).message,
-      });
+      if ((error as Error).name === "ConditionalCheckFailedException") {
+        res.status(404).send({
+          success: false,
+          message: `${productId} does not exist`,
+          error: (error as Error).message,
+        });
+      } else {
+        res.status(500).send({
+          success: false,
+          message: "Could not edit product.",
+          error: (error as Error).message,
+        });
+      }
     }
   }
 );
