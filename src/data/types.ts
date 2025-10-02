@@ -34,14 +34,3 @@ export interface IdParam {
 }
 
 // request body types
-export interface CreateUserBody {
-    pk: string
-    sk: string
-    name: string
-}
-
-export interface UpdateUserBody {
-    pk: string
-    sk: string
-    name: string
-}

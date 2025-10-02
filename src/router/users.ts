@@ -1,22 +1,34 @@
-import { GetCommand, QueryCommand, ScanCommand, PutCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb"
+import { GetCommand, QueryCommand, ScanCommand, PutCommand, DeleteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb"
 import express from "express"
 import type { Request, Response, Router } from "express"
 import { db, myTable } from "../data/db.js"
 import  { UserIdSchema, UserSchema } from "../data/validation.js"
-import type { CreateUserBody, ErrorResponse, OperationResult, SuccessResponse, UpdateUserBody, IdParam } from "../data/types.js"
-
+import type { ErrorResponse, OperationResult, SuccessResponse, IdParam, GetResult } from "../data/types.js"
 
 
 const router: Router = express.Router()
 
-export type GetResult = Record<string, any> | undefined
 
-interface User {
-  pk: string;
-  sk: string;
-  name: string;
+
+
+interface CreateUserBody {
+   pk: string
+   sk: string
+   name: string
 }
 
+interface UpdateUserBody {
+   name: string
+}
+
+interface User {
+ pk: string;
+ sk: string;
+ name: string;
+}
+interface UserName {
+    name: string;
+}
 
 // get all users
 
@@ -145,6 +157,7 @@ router.post("/", async (req: Request<CreateUserBody>, res: Response<OperationRes
 router.delete("/:id", async (req: Request<IdParam>, res: Response<OperationResult<User> | ErrorResponse>) => {
     try {
         const validationResult = UserIdSchema.safeParse( req.params.id ) // validate user id from params
+
          if (!validationResult.success) {
             return res.status(400).send({
                 success: false,
@@ -155,19 +168,23 @@ router.delete("/:id", async (req: Request<IdParam>, res: Response<OperationResul
 
         const userId = validationResult.data
 
-        await db.send(new DeleteCommand({
+        const result = await db.send(new DeleteCommand({
             TableName: myTable,
             Key: {
                 pk: userId,
                 sk: "meta"
             },
-            ConditionExpression: "attribute_exists(pk)" // ensure user exists
+            ConditionExpression: "attribute_exists(pk)", // ensure user exists
+            ReturnValues: "ALL_OLD"
         }))
-        res.status(204).send({
+        
+        const deletedUser = result.Attributes as User
+
+        res.status(200).send({
             success: true,
             message: "User deleted successfully",
-            item: null // TODO: ändra så att det kan bli user-objektet
-        }) // no content
+            item: deletedUser,
+        })
     } catch (error) {
         res.status(500).send({
             success: false,
@@ -178,10 +195,11 @@ router.delete("/:id", async (req: Request<IdParam>, res: Response<OperationResul
 })
 
 // PUT update user by Id 
-router.put("/:id", async (req: Request<IdParam, {}, UpdateUserBody>, res: Response<OperationResult<User> | ErrorResponse>) => {
+router.put("/:id", async (req: Request<IdParam, {}, UpdateUserBody>, res: Response<OperationResult<UserName> | ErrorResponse>) => {
     try {
         const userId = req.params.id
-        let validationResult = UserSchema.safeParse(req.body) // validate input data
+
+        let validationResult = UserSchema.pick({name: true }).safeParse(req.body) // you can select fields with pick
 
         if (!validationResult.success) {  // if validation fails
             return res.status(400).send({
@@ -190,26 +208,29 @@ router.put("/:id", async (req: Request<IdParam, {}, UpdateUserBody>, res: Respon
                 message: "Invalid user data"
             })
         }
-        const updatedUser = validationResult.data  // get validated data
 
-        if (userId !== updatedUser.pk) {  // ensure id in url matches id in body, so we dont get diffrent ids 
-            return res.status(400).send({
-                success: false,
-                error: "ID mismatch",
-                message: "User ID in URL and body do not match"
-            })
-        }
+        const name = validationResult.data.name
 
-        await db.send(new PutCommand({
+        await db.send(new UpdateCommand({
             TableName: myTable,
-            Item: updatedUser,
+            Key: {
+                pk: userId,   
+                sk: "meta"
+            },
+            UpdateExpression: "SET #name = :name",
+            ExpressionAttributeNames: {
+                "#name": "name"
+            },
+            ExpressionAttributeValues: {
+                ":name": name
+            },
             ConditionExpression: "attribute_exists(pk)" // ensure user exists
         }))
 
         res.status(200).send({
             success: true,
-            message: "User updated successfully",
-            item: updatedUser
+            message: "User name updated successfully",
+            item: { name  }
         })
     }
     catch (error) {
