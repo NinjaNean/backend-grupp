@@ -3,7 +3,7 @@ import type { Request, Response, Router } from "express";
 import { db, myTable } from "../data/db.js";
 import { QueryCommand, PutCommand, UpdateCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
 import { v4 as uuidv4 } from "uuid";
-import type { SuccessResponse, CartItem, ErrorResponse, OperationResult, UserParams, CartParams } from "../data/types.js";
+import type { SuccessResponse, CartItem, ErrorResponse, OperationResult } from "../data/types.js";
 import { CartItemCreate, CartItemUpdate } from "../data/validation.js";
 
 const router: Router = express.Router();
@@ -13,6 +13,15 @@ type DbCartItem = {
   sk: string;       
   productId: string;
   amount: number;
+};
+
+type CartParams = { 
+  userId: string; 
+  cartId: string; 
+};
+
+type UserParams = { 
+  userId: string;
 };
 
 // GET Hämta användarinfo och produkter i användarens cart
@@ -118,7 +127,6 @@ router.post(
     }
   }
 );
-
 
 // PUT Uppdatera antal av en produkt i användarens cart
 router.put(

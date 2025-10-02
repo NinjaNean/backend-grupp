@@ -12,15 +12,6 @@ export type CartItem = {
   amount: number;
 };
 
-export type CartParams = { 
-  userId: string; 
-  cartId: string; 
-};
-
-export type UserParams = { 
-  userId: string;
-};
-
 // success response for GET
 export type SuccessResponse<T> = {
   success: boolean;
