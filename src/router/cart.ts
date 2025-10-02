@@ -18,6 +18,7 @@ export const CartItemUpdateZ = z.object({
 
 const router: Router = express.Router();
 
+//dubbla längre ner
 type UserParam = { 
   userId: string };
 
@@ -25,6 +26,7 @@ type CartParam = {
   userId: string; 
   cartId: string };
 
+// generiska??
 type SuccessResponse<T> = {
   success: true;
   count: number;
