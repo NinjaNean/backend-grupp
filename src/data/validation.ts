@@ -24,4 +24,13 @@ const UpdateProductSchema = z.object({
   name: z.string().min(1),
 });
 
-export { UserSchema, UserIdSchema, ProductSchema, UpdateProductSchema };
+const CartItemCreate = z.object({
+  productId: z.string().min(1),
+  amount: z.number().int().min(1),
+});
+
+const CartItemUpdate = z.object({
+  amount: z.number().int().min(1),
+});
+
+export { UserSchema, UserIdSchema, ProductSchema, UpdateProductSchema, CartItemCreate, CartItemUpdate };

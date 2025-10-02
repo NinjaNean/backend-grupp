@@ -3,20 +3,10 @@ import type { Request, Response, Router } from "express";
 import { db, myTable } from "../data/db.js";
 import { QueryCommand, PutCommand, UpdateCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
 import { v4 as uuidv4 } from "uuid";
-import type { CartItem, ErrorResponse } from "../data/types.js";
-import { CartItemCreateZ, CartItemUpdateZ } from "../data/validation.js";
+import type { SuccessResponse, CartItem, ErrorResponse, OperationResult } from "../data/types.js";
+import { CartItemCreate, CartItemUpdate } from "../data/validation.js";
 
 const router: Router = express.Router();
-
-//lägg i types
-type CartParams = { 
-  userId: string; 
-  cartId: string 
-};
-
-type UserParams = { 
-  userId: string 
-};
 
 type DbCartItem = {
   pk: string;      
@@ -25,21 +15,30 @@ type DbCartItem = {
   amount: number;
 };
 
+type CartParams = { 
+  userId: string; 
+  cartId: string; 
+};
+
+type UserParams = { 
+  userId: string;
+};
+
 // GET Hämta användarinfo och produkter i användarens cart
 router.get(
   "/:userId",
-  async (req: Request<UserParam>, res: Response<SuccessResponse<CartItem> | ErrorResponse>) => {
+  async (req: Request<UserParams>, res: Response<SuccessResponse<CartItem> | ErrorResponse>) => {
     try {
       const { userId } = req.params;
 
-      // Hämta användrens information
+      // Hämta användarens information
       const userResult = await db.send(
         new QueryCommand({
           TableName: myTable,
-          KeyConditionExpression: "pk = :pk AND begins_with(sk, :metaPrefix)",
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :meta)",
           ExpressionAttributeValues: {
             ":pk": userId,
-            ":metaPrefix": "meta",
+            ":meta": "meta",
           },
         })
       );
@@ -56,10 +55,10 @@ router.get(
       const cartResult = await db.send(
         new QueryCommand({
           TableName: myTable,
-          KeyConditionExpression: "pk = :pk AND begins_with(sk, :cartPrefix)",
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :cart)",
           ExpressionAttributeValues: {
             ":pk": userId,
-            ":cartPrefix": "cart",
+            ":cart": "cart",
           },
         })
       );
@@ -86,12 +85,13 @@ router.get(
   }
 );
 
+
 // POST Lägg till en produkt i användarens cart
 router.post(
   "/:userId",
-  async (req: Request<UserParam>, res: Response<OperationResult<CartItem> | ErrorResponse>) => {
+  async (req: Request<UserParams>, res: Response<OperationResult<CartItem> | ErrorResponse>) => {
     const { userId } = req.params;
-    const parsed = CartItemCreateZ.safeParse(req.body);
+    const parsed = CartItemCreate.safeParse(req.body);
 
     if (!parsed.success) {
       return res.status(400).json({
@@ -128,13 +128,12 @@ router.post(
   }
 );
 
-
 // PUT Uppdatera antal av en produkt i användarens cart
 router.put(
   "/:userId/:cartId",
-  async (req: Request<CartParam>, res: Response<OperationResult<CartItem> | ErrorResponse>) => {
+  async (req: Request<CartParams>, res: Response<OperationResult<CartItem> | ErrorResponse>) => {
     const { userId, cartId } = req.params;
-    const parsed = CartItemUpdateZ.safeParse(req.body);
+    const parsed = CartItemUpdate.safeParse(req.body);
 
     if (!parsed.success) {
       return res.status(400).json({
@@ -258,8 +257,6 @@ router.delete("/:userId", async (req: Request<UserParams>, res: Response) => {
     });
   }
 });
-
-
 
 
 export default router;
