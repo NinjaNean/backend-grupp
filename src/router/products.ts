@@ -116,10 +116,15 @@ router.post("/", async (req: Request<Product>, res: Response<OperationResult<Pro
   const parsed = ProductSchema.safeParse(req.body);
 
   if (!parsed.success) {
+    const errors = parsed.error.issues.map((err) => ({
+      field: err.path.join("."),
+      message: err.message,
+    }));
+
     res.status(400).send({
       success: parsed.success,
       message: "The product information is invalid.",
-      error: parsed.error.message,
+      error: errors,
     });
 
     return;
@@ -173,10 +178,15 @@ router.put(
     const parsed = UpdateProductSchema.safeParse(req.body);
 
     if (!parsed.success) {
+      const errors = parsed.error.issues.map((err) => ({
+        field: err.path.join("."),
+        message: err.message,
+      }));
+
       res.status(400).send({
         success: parsed.success,
         message: "The product information is invalid.",
-        error: parsed.error.message,
+        error: errors,
       });
 
       return;

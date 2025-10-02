@@ -19,29 +19,34 @@ export type SuccessResponse<T> = {
   items: T[] | T;
 };
 
+type Error = {
+  field: string;
+  message: string;
+};
+
 // Error response for all endpoints
 export type ErrorResponse = {
   success: boolean;
   message: string;
-  error: string;
+  error: string | Error[];
 };
 
 export type GetResult = Record<string, any> | undefined;
 
 // for url-params
 export interface IdParam {
-    id: string
+  id: string;
 }
 
 // request body types
 export interface CreateUserBody {
-    pk: string
-    sk: string
-    name: string
+  pk: string;
+  sk: string;
+  name: string;
 }
 
 export interface UpdateUserBody {
-    pk: string
-    sk: string
-    name: string
+  pk: string;
+  sk: string;
+  name: string;
 }

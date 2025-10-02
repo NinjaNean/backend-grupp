@@ -1,27 +1,81 @@
 import * as z from "zod";
 
 const UserSchema = z.object({
-    pk: z.string().min(1).regex(/^user\w+/), // pk must start with "user" followed by one or more word characters
-    sk: z.string().min(1).regex(/^meta$/),   // sk must be exactly "meta"
-    name: z.string().min(1)                  // name must be a non-empty string
+  pk: z
+    .string()
+    .min(1)
+    .regex(/^user\w+/), // pk must start with "user" followed by one or more word characters
+  sk: z
+    .string()
+    .min(1)
+    .regex(/^meta$/), // sk must be exactly "meta"
+  name: z.string().min(1), // name must be a non-empty string
 });
 
 const UserIdSchema = z.string().min(1).regex(/^user/); // id must start with "user"
 
 const ProductSchema = z.object({
-  pk: z.literal("products"),
-  sk: z.string().regex(/^productId\d+$/),
-  image: z.string(),
-  amountStock: z.number(),
-  price: z.number(),
-  name: z.string().min(1),
+  pk: z.literal("products", {
+    message: "The primary key (pk) must be exactly 'products'.",
+  }),
+  sk: z
+    .string({
+      message: "Sort key (sk) must be a string.",
+    })
+    .regex(/^productId\d+$/, {
+      message: "The sort key (sk) must start with 'productId' followed by a number (e.g., 'productId123').",
+    }),
+  image: z.string({
+    message: "Image must be a string (URL).",
+  }),
+  amountStock: z
+    .number({
+      message: "Stock must be a number.",
+    })
+    .gte(0, {
+      message: "Stock cannot be less than 0.",
+    }),
+  price: z
+    .number({
+      message: "Price must be a number.",
+    })
+    .gte(0, {
+      message: "Price cannot be less than 0.",
+    }),
+  name: z
+    .string({
+      message: "Name must be a string.",
+    })
+    .min(1, {
+      message: "Product name is required.",
+    }),
 });
 
 const UpdateProductSchema = z.object({
-  image: z.string(),
-  amountStock: z.number(),
-  price: z.number(),
-  name: z.string().min(1),
+  image: z.string({
+    message: "Image must be a string (URL).",
+  }),
+  amountStock: z
+    .number({
+      message: "Stock must be a number.",
+    })
+    .gte(0, {
+      message: "Stock cannot be less than 0.",
+    }),
+  price: z
+    .number({
+      message: "Price must be a number.",
+    })
+    .gte(0, {
+      message: "Price cannot be less than 0.",
+    }),
+  name: z
+    .string({
+      message: "Name must be a string.",
+    })
+    .min(1, {
+      message: "Product name is required.",
+    }),
 });
 
 const CartItemCreate = z.object({
