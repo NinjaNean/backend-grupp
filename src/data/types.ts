@@ -2,14 +2,7 @@
 export type OperationResult<T> = {
   success: true;
   message: string;
-  item: T | null;
-};
-
-export type CartItem = {
-  id: string;
-  userId: string;
-  productId: string;
-  amount: number;
+  item: T | GetResult;
 };
 
 // success response for GET

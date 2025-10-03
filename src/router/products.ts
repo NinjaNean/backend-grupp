@@ -95,7 +95,7 @@ router.delete(
       res.status(200).send({
         success: true,
         message: "The product has been removed.",
-        item: deletedProduct,
+        item: result.Attributes,
       });
     } catch (error) {
       if ((error as Error).name === "ConditionalCheckFailedException") {
@@ -194,7 +194,7 @@ router.put(
       res.status(200).send({
         success: true,
         message: "Product updated.",
-        item: newProduct,
+        item: result.Attributes,
       });
     } catch (error) {
       res.status(500).send({

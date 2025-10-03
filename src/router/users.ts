@@ -148,7 +148,7 @@ router.delete("/:id", async (req: Request<IdParam>, res: Response<OperationResul
 
         const userId = validationResult.data
 
-        await db.send(new DeleteCommand({
+        const result = await db.send(new DeleteCommand({
             TableName: myTable,
             Key: {
                 pk: userId,
@@ -159,7 +159,7 @@ router.delete("/:id", async (req: Request<IdParam>, res: Response<OperationResul
         res.status(204).send({
             success: true,
             message: "User deleted successfully",
-            item: null // TODO: ändra så att det kan bli user-objektet
+            item: result.Attributes // TODO: ändra så att det kan bli user-objektet
         }) // no content
     } catch (error) {
         res.status(500).send({
