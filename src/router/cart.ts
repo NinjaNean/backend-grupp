@@ -183,14 +183,14 @@ router.put(
 //radera en produkt 
 router.delete(
   "/:userId/:cartId",
-  async (req: Request<{ userId: string; cartId: string }>, res: Response<OperationResult<CartItem> | ErrorResponse>) => {
+  async (req: Request<{ userId: string; cartId: string }>, res: Response<OperationResult<DbCartItem> | ErrorResponse>) => {
     const { userId, cartId } = req.params;
 
     try {
       const result = await db.send(
         new DeleteCommand({
           TableName: myTable,
-          Key: { pk: userId, sk: cartId },
+          Key: { pk: `USER#${userId}`, sk: `CART#${cartId}` },
           ConditionExpression: "attribute_exists(sk)",
           ReturnValues: "ALL_OLD",
         })
@@ -210,10 +210,9 @@ router.delete(
         success: true,
         message: "Product removed from cart",
         item: {
-          id: deleted.sk,
-          userId: deleted.pk,
-          productId: deleted.productId,
-          amount: deleted.amount,
+          success: true,
+          message: "Product removed",
+          item: result.Attributes as DbCartItem,
         },
       });
     } catch (error) {
