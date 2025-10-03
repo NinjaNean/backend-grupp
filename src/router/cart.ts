@@ -234,7 +234,7 @@ router.delete("/:userId", async (req: Request<UserParams>, res: Response) => {
       new QueryCommand({
         TableName: myTable,
         KeyConditionExpression: "pk = :pk AND begins_with(sk, :c)",
-        ExpressionAttributeValues: { ":pk": userId, ":c": "cart" },
+        ExpressionAttributeValues: { ":pk": `USER#${userId}`, ":c": "CART#" },
       })
     );
 
