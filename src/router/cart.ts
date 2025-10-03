@@ -3,14 +3,14 @@ import type { Request, Response, Router } from "express";
 import { db, myTable } from "../data/db.js";
 import { QueryCommand, PutCommand, UpdateCommand, DeleteCommand, GetCommand } from "@aws-sdk/lib-dynamodb";
 import type { DeleteCommandOutput, UpdateCommandOutput, PutCommandOutput, GetCommandOutput } from "@aws-sdk/lib-dynamodb";
-import type { SuccessResponse, CartItem, ErrorResponse, OperationResult } from "../data/types.js";
+import type { SuccessResponse, ErrorResponse, OperationResult, GetResult } from "../data/types.js";
 import { CartItemCreate, CartItemUpdate } from "../data/validation.js";
 
 const router: Router = express.Router();
 
 type DbCartItem = {
   pk: string;      // userId
-  sk: string;      // cart-<productId> 
+  sk: `cart#${string}`;
   productId: string;
   amount: number;
 };
@@ -20,40 +20,31 @@ type CartParams = {
   cartId: string;
 };
 
+//ta bort
 type UserParams = {
   userId: string;
+};
+
+type CartItem = {
+  id: string;
+  userId: string;
+  productId: string;
+  amount: number;
 };
 
 //hämta carten
 router.get(
   "/:userId",
-  async (req: Request<UserParams>, res: Response<SuccessResponse<CartItem> | ErrorResponse>) => {
+  async (req: Request<UserParams>, res: Response<SuccessResponse<DbCartItem> | ErrorResponse>) => {
     try {
       const { userId } = req.params;
 
-      const userResult = await db.send(
+      //fånga om inte userid finns
+
+      const cartResult: GetResult = await db.send(
         new QueryCommand({
           TableName: myTable,
-          KeyConditionExpression: "pk = :pk AND begins_with(sk, :meta)",
-          ExpressionAttributeValues: {
-            ":pk": userId,
-            ":meta": "meta",
-          },
-        })
-      );
-
-      if (!userResult.Items?.length) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found",
-          error: "No user with that ID",
-        });
-      }
-
-      const cartResult = await db.send(
-        new QueryCommand({
-          TableName: myTable,
-          KeyConditionExpression: "pk = :pk AND begins_with(sk, :cart)",
+          KeyConditionExpression: "pk = :pk AND sk = :cart",
           ExpressionAttributeValues: {
             ":pk": userId,
             ":cart": "cart",
@@ -61,17 +52,10 @@ router.get(
         })
       );
 
-      const cartItems: CartItem[] = (cartResult.Items ?? []).map((item) => ({
-        id: item.sk,
-        userId,
-        productId: item.productId,
-        amount: item.amount,
-      }));
-
       return res.status(200).json({
         success: true,
-        count: cartItems.length,
-        items: cartItems,
+        count: cartResult.Count ?? 0,
+        items: cartResult.Items ?? [],
       });
     } catch (error) {
       return res.status(500).json({
@@ -86,7 +70,7 @@ router.get(
 //lägga till en ny produkt
 router.post(
   "/:userId",
-  async (req: Request<UserParams>, res: Response<OperationResult<CartItem> | ErrorResponse>) => {
+  async (req: Request<UserParams>, res: Response<OperationResult<DbCartItem> | ErrorResponse>) => {
     const { userId } = req.params;
     const parsed = CartItemCreate.safeParse(req.body);
 
@@ -98,32 +82,16 @@ router.post(
       });
     }
 
-    const { productId, amount } = parsed.data;
-    const cartSk = `cart-${productId}`;
-    const newCartItem: CartItem = { id: cartSk, userId, productId, amount };
-
     try {
-      const existing: GetCommandOutput = await db.send(
-        new GetCommand({
-          TableName: myTable,
-          Key: { pk: userId, sk: cartSk },
-        })
-      );
-
-      if (existing.Item) {
-        const prevAmount =
-          typeof (existing.Item as DbCartItem).amount === "number"
-            ? (existing.Item as DbCartItem).amount
-            : 0;
-        const updatedAmount = prevAmount + amount;
-
-        await db.send(
+        const result = await db.send(
           new UpdateCommand({
             TableName: myTable,
-            Key: { pk: userId, sk: cartSk },
-            UpdateExpression: "SET amount = :amount",
-            ExpressionAttributeValues: { ":amount": updatedAmount },
-            ConditionExpression: "attribute_exists(sk)",
+            Key: { pk: userId, sk: `cart#${parsed.data.productId}` },
+            UpdateExpression: "SET amount = if_not_exists(amount, 0) + :inc, productId = :pid",
+            ExpressionAttributeValues: {
+              ":inc": parsed.data.amount,
+              ":pid": parsed.data.productId,
+            },
             ReturnValues: "ALL_NEW",
           })
         );
@@ -131,41 +99,35 @@ router.post(
         return res.status(200).json({
           success: true,
           message: "Product amount updated in cart.",
-          item: { ...newCartItem, amount: updatedAmount },
+          item: result.Attributes,
         });
-      } else {
-        const putResult: PutCommandOutput = await db.send(
+      }
+  
+     catch (error) {
+      
+        const newCartItem = { pk: userId, sk: 'cart', ...parsed.data }
+        try {
+          const result = await db.send(
           new PutCommand({
             TableName: myTable,
-            Item: { pk: userId, sk: cartSk, productId, amount },
-            ConditionExpression: "attribute_not_exists(sk)",
+            Item: newCartItem
           })
         );
 
         return res.status(201).json({
           success: true,
-          message: "Item added to cart.",
+          message: "Product has been added in cart.",
           item: newCartItem,
         });
-      }
-    } catch (error) {
-      if ((error as Error).name === "ConditionalCheckFailedException") {
-
-        return res.status(409).json({
-          success: false,
-          message: "Item already exists in cart",
-          error: (error as Error).message,
-        });
-      }
-
-      return res.status(500).json({
+        } catch (error) {
+          res.status(500).send({
         success: false,
-        message: "Could not add product to cart",
+        message: "Could not edit product.",
         error: (error as Error).message,
       });
-    }
-  }
-);
+      }
+    
+  }});
 
 //ändra antal av en produkt i korgen
 router.put(
