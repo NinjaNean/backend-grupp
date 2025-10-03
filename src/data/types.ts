@@ -2,7 +2,7 @@
 export type OperationResult<T> = {
   success: true;
   message: string;
-  item: T | null;
+  item: T | GetResult;
 };
 
 export type CartItem = {

@@ -88,12 +88,10 @@ router.delete("/:productId", async (req: Request<IdParam>, res: Response<Operati
       })
     );
 
-    const deletedProduct: Product | null = result.Attributes ? (result.Attributes as Product) : null;
-
     res.status(200).send({
       success: true,
       message: "The product has been removed.",
-      item: deletedProduct,
+      item: result.Attributes,
     });
   } catch (error) {
     if ((error as Error).name === "ConditionalCheckFailedException") {
@@ -220,12 +218,10 @@ router.put(
         })
       );
 
-      const newProduct: UpdatedProduct | null = result.Attributes ? (result.Attributes as UpdatedProduct) : null;
-
       res.status(200).send({
         success: true,
         message: "Product updated.",
-        item: newProduct,
+        item: result.Attributes,
       });
     } catch (error) {
       if ((error as Error).name === "ConditionalCheckFailedException") {
