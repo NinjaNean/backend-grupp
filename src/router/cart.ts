@@ -10,7 +10,7 @@ const router: Router = express.Router();
 
 type DbCartItem = {
   pk: string;      // userId
-  sk: `cart#${string}`;
+  sk: `CART#${string}`;
   productId: string;
   amount: number;
 };
@@ -44,10 +44,10 @@ router.get(
       const cartResult: GetResult = await db.send(
         new QueryCommand({
           TableName: myTable,
-          KeyConditionExpression: "pk = :pk AND sk = :cart",
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :cart)",
           ExpressionAttributeValues: {
-            ":pk": userId,
-            ":cart": "cart",
+            ":pk": `USER#${userId}`,
+            ":cart": "CART#",
           },
         })
       );
@@ -83,51 +83,33 @@ router.post(
     }
 
     try {
-        const result = await db.send(
-          new UpdateCommand({
-            TableName: myTable,
-            Key: { pk: userId, sk: `cart#${parsed.data.productId}` },
-            UpdateExpression: "SET amount = if_not_exists(amount, 0) + :inc, productId = :pid",
-            ExpressionAttributeValues: {
-              ":inc": parsed.data.amount,
-              ":pid": parsed.data.productId,
-            },
-            ReturnValues: "ALL_NEW",
-          })
-        );
+      const result = await db.send(new UpdateCommand({
+        TableName: myTable,
+        Key: { pk: `USER#${userId}`, sk: `CART#${parsed.data.productId}` },
+        UpdateExpression: "SET amount = if_not_exists(amount, :zero) + :inc, productId = :pid",
+        ExpressionAttributeValues: {
+          ":zero": 0,
+          ":inc": parsed.data.amount,
+          ":pid": parsed.data.productId,
+        },
+        ReturnValues: "ALL_NEW",
+      }));
 
-        return res.status(200).json({
-          success: true,
-          message: "Product amount updated in cart.",
-          item: result.Attributes,
-        });
-      }
-  
-     catch (error) {
-      
-        const newCartItem = { pk: userId, sk: 'cart', ...parsed.data }
-        try {
-          const result = await db.send(
-          new PutCommand({
-            TableName: myTable,
-            Item: newCartItem
-          })
-        );
-
-        return res.status(201).json({
-          success: true,
-          message: "Product has been added in cart.",
-          item: newCartItem,
-        });
-        } catch (error) {
-          res.status(500).send({
+      return res.status(200).json({
+        success: true,
+        message: "Product amount updated in cart.",
+        item: result.Attributes as DbCartItem,
+      });
+    } catch (error) {
+      return res.status(500).json({
         success: false,
-        message: "Could not edit product.",
+        message: "Could not update cart.",
         error: (error as Error).message,
       });
-      }
-    
-  }});
+    }
+  }
+);
+
 
 //ändra antal av en produkt i korgen
 router.put(
