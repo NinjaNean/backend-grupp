@@ -207,14 +207,11 @@ router.delete(
       }
 
       return res.status(200).json({
-        success: true,
-        message: "Product removed from cart",
-        item: {
           success: true,
           message: "Product removed",
           item: result.Attributes as DbCartItem,
         },
-      });
+      );
     } catch (error) {
       return res.status(500).json({
         success: false,
@@ -250,13 +247,13 @@ router.delete("/:userId", async (req: Request<UserParams>, res: Response) => {
 
     return res.send({
       success: true,
-      message: "Hela kundvagnen raderades",
+      message: "Total cart removed",
       removed: items.length,
     });
   } catch {
     return res.status(500).send({
       success: false,
-      error: "Kunde inte radera hela carten",
+      error: "Could not remove cart",
     });
   }
 });
