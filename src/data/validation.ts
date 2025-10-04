@@ -2,7 +2,7 @@ import * as z from "zod";
 
 const UserSchema = z.object({
     pk: z.string().min(1).regex(/^user\w+/), // pk must start with "user" followed by one or more word characters
-    sk: z.string().min(1).regex(/^meta$/),   // sk must be exactly "meta"
+    sk: z.string().min(1).regex(/^meta$/),   // sk must be exactly "meta" "z.literal meta"
     name: z.string().min(1)                  // name must be a non-empty string
 });
 
