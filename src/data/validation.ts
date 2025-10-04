@@ -4,15 +4,15 @@ const UserSchema = z.object({
   pk: z
     .string()
     .min(1)
-    .regex(/^user\w+/), // pk must start with "user" followed by one or more word characters
-  sk: z
-    .string()
-    .min(1)
-    .regex(/^meta$/), // sk must be exactly "meta"
-  name: z.string().min(1), // name must be a non-empty string
+    .regex(/^USER#u\d+$/), // pk must start with "USER#u" followed by a number.
+  sk: z.literal("META"), // sk must be exactly "META"
+  name: z.string().min(1), // name must be a non-empty string.
 });
 
-const UserIdSchema = z.string().min(1).regex(/^user/); // id must start with "user"
+const UserIdSchema = z
+  .string()
+  .min(1)
+  .regex(/^USER#u\d+$/); // id must start with "USER#u" followed by a number.
 
 const ProductSchema = z.object({
   pk: z.literal("PRODUCTS", {
@@ -76,7 +76,10 @@ const UpdateProductSchema = z.object({
 });
 
 const CartItemCreate = z.object({
-  productId: z.string().min(1),
+  productId: z
+    .string()
+    .min(1)
+    .regex(/^p\d+$/),
   amount: z.number().int().min(1),
 });
 
