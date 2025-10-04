@@ -5,13 +5,6 @@ export type OperationResult<T> = {
   item: T | GetResult;
 };
 
-export type CartItem = {
-  id: string;
-  userId: string;
-  productId: string;
-  amount: number;
-};
-
 // success response for GET
 export type SuccessResponse<T> = {
   success: boolean;
