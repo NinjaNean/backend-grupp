@@ -22,10 +22,10 @@ router.get("/", async (req, res: Response<SuccessResponse<Product> | ErrorRespon
     const result: GetResult = await db.send(
       new QueryCommand({
         TableName: myTable,
-        KeyConditionExpression: "pk = :p AND begins_with(sk, :pId)",
+        KeyConditionExpression: "pk = :p AND begins_with(sk, :product)",
         ExpressionAttributeValues: {
           ":p": "products",
-          ":pId": "productId",
+          ":product": "productId",
         },
       })
     );
@@ -45,7 +45,7 @@ router.get("/", async (req, res: Response<SuccessResponse<Product> | ErrorRespon
 });
 
 // TODO: byt ut object
-router.get("/:productId", async (req: Request<IdParam>, res: Response<object | ErrorResponse>) => {
+router.get("/:id", async (req: Request<IdParam>, res: Response<object | ErrorResponse>) => {
   const productId: string = req.params.id;
 
   try {
@@ -72,8 +72,10 @@ router.get("/:productId", async (req: Request<IdParam>, res: Response<object | E
   }
 });
 
-router.delete("/:productId", async (req: Request<IdParam>, res: Response<OperationResult<Product> | ErrorResponse>) => {
-  const productId: string = req.params.id;
+router.delete("/:id", async (req: Request<IdParam>, res: Response<OperationResult<Product> | ErrorResponse>) => {
+  const productId = req.params.id;
+
+  console.log(req.params);
 
   try {
     let result: DeleteCommandOutput = await db.send(
@@ -168,77 +170,74 @@ type UpdatedProduct = {
   name: string;
 };
 
-router.put(
-  "/:productId",
-  async (req: Request<IdParam>, res: Response<OperationResult<UpdatedProduct> | ErrorResponse>) => {
-    const productId: string = req.params.id;
+router.put("/:id", async (req: Request<IdParam>, res: Response<OperationResult<UpdatedProduct> | ErrorResponse>) => {
+  const productId: string = req.params.id;
 
-    const parsed = UpdateProductSchema.safeParse(req.body);
+  const parsed = UpdateProductSchema.safeParse(req.body);
 
-    if (!parsed.success) {
-      const errors = parsed.error.issues.map((err) => ({
-        field: err.path.join("."),
-        message: err.message,
-      }));
+  if (!parsed.success) {
+    const errors = parsed.error.issues.map((err) => ({
+      field: err.path.join("."),
+      message: err.message,
+    }));
 
-      res.status(400).send({
-        success: parsed.success,
-        message: "The product information is invalid.",
-        error: errors,
+    res.status(400).send({
+      success: parsed.success,
+      message: "The product information is invalid.",
+      error: errors,
+    });
+
+    return;
+  }
+
+  const updatedProduct = parsed.data;
+
+  try {
+    let result = await db.send(
+      new UpdateCommand({
+        TableName: myTable,
+        Key: {
+          pk: "products",
+          sk: productId,
+        },
+        UpdateExpression: "SET #img = :i, #stock = :a, #price = :p, #nm = :n",
+        ExpressionAttributeNames: {
+          "#img": "image",
+          "#stock": "amountStock",
+          "#price": "price",
+          "#nm": "name",
+        },
+        ExpressionAttributeValues: {
+          ":i": updatedProduct.image,
+          ":a": updatedProduct.amountStock,
+          ":p": updatedProduct.price,
+          ":n": updatedProduct.name,
+        },
+        ConditionExpression: "attribute_exists(sk)",
+        ReturnValues: "ALL_NEW",
+      })
+    );
+
+    res.status(200).send({
+      success: true,
+      message: "Product updated.",
+      item: result.Attributes,
+    });
+  } catch (error) {
+    if ((error as Error).name === "ConditionalCheckFailedException") {
+      res.status(404).send({
+        success: false,
+        message: `${productId} does not exist`,
+        error: (error as Error).message,
       });
-
-      return;
-    }
-
-    const updatedProduct = parsed.data;
-
-    try {
-      let result = await db.send(
-        new UpdateCommand({
-          TableName: myTable,
-          Key: {
-            pk: "products",
-            sk: productId,
-          },
-          UpdateExpression: "SET #img = :i, #stock = :a, #price = :p, #nm = :n",
-          ExpressionAttributeNames: {
-            "#img": "image",
-            "#stock": "amountStock",
-            "#price": "price",
-            "#nm": "name",
-          },
-          ExpressionAttributeValues: {
-            ":i": updatedProduct.image,
-            ":a": updatedProduct.amountStock,
-            ":p": updatedProduct.price,
-            ":n": updatedProduct.name,
-          },
-          ConditionExpression: "attribute_exists(sk)",
-          ReturnValues: "ALL_NEW",
-        })
-      );
-
-      res.status(200).send({
-        success: true,
-        message: "Product updated.",
-        item: result.Attributes,
+    } else {
+      res.status(500).send({
+        success: false,
+        message: "Could not edit product.",
+        error: (error as Error).message,
       });
-    } catch (error) {
-      if ((error as Error).name === "ConditionalCheckFailedException") {
-        res.status(404).send({
-          success: false,
-          message: `${productId} does not exist`,
-          error: (error as Error).message,
-        });
-      } else {
-        res.status(500).send({
-          success: false,
-          message: "Could not edit product.",
-          error: (error as Error).message,
-        });
-      }
     }
   }
-);
+});
 
 export default router;
