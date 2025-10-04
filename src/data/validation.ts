@@ -15,19 +15,16 @@ const UserSchema = z.object({
 const UserIdSchema = z.string().min(1).regex(/^user/); // id must start with "user"
 
 const ProductSchema = z.object({
-  pk: z.literal("products", {
-    message: "The primary key (pk) must be exactly 'products'.",
+  pk: z.literal("PRODUCTS", {
+    message: "The primary key (pk) must be exactly 'PRODUCTS'.",
   }),
   sk: z
     .string({
       message: "Sort key (sk) must be a string.",
     })
-    .regex(/^productId\d+$/, {
-      message: "The sort key (sk) must start with 'productId' followed by a number (e.g., 'productId123').",
+    .regex(/^PRODUCT#p\d+$/, {
+      message: "The sort key (sk) must start with 'PRODUCT#' followed by a number (e.g., 'PRODUCT#p123').",
     }),
-  image: z.string({
-    message: "Image must be a string (URL).",
-  }),
   amountStock: z
     .number({
       message: "Stock must be a number.",
