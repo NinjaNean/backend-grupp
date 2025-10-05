@@ -376,7 +376,7 @@ Calling this resource will respond with the following object:
 ```
 
 
-Example – POST a Product
+Example – POST a Cart
 
 Request 
 
@@ -407,7 +407,7 @@ will respond with the following object:
 }
 ```
 
-Example – PUT a Product
+Example – PUT a Item in Cart
 
 Request 
 
