@@ -386,11 +386,11 @@ Calling this resource with a correct body example example of body:
 
 ```json
 {
-			pk: USER#u1
-            sk: CART#p2
-            productId: pp20
-    		amount: 2
-	}
+			"amount": 1,
+			"productId": pp5
+			"pk": "USER#u1",
+			"sk": "CART#p5"
+		}
 ````
 
 will respond with the following object:
