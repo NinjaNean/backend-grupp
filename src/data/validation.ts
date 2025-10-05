@@ -76,10 +76,7 @@ const UpdateProductSchema = z.object({
 });
 
 const CartItemCreate = z.object({
-  productId: z
-    .string()
-    .min(1)
-    .regex(/^p\d+$/),
+  productId: z.string().min(1).regex(/^\d+$/),
   amount: z.number().int().min(1),
 });
 
