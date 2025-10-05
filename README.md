@@ -387,7 +387,7 @@ Calling this resource with a correct body example example of body:
 ```json
 {
 			"amount": 1,
-			"productId": pp5
+			"productId": "pp5"
 			"pk": "USER#u1",
 			"sk": "CART#p5"
 		}
