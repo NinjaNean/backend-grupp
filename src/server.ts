@@ -14,6 +14,7 @@ const logger: RequestHandler = (req, res, next) => {
 
 app.use("/", logger);
 app.use(express.json());
+
 app.use("/products", productsRouter);
 app.use("/users", usersRouter);
 app.use("/cart", cartRouter);

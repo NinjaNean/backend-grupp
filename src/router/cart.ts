@@ -1,16 +1,16 @@
 import express from "express";
 import type { Request, Response, Router } from "express";
 import { db, myTable } from "../data/db.js";
-import { QueryCommand, PutCommand, UpdateCommand, DeleteCommand, GetCommand } from "@aws-sdk/lib-dynamodb";
-import type { DeleteCommandOutput, UpdateCommandOutput, PutCommandOutput, GetCommandOutput } from "@aws-sdk/lib-dynamodb";
+import { QueryCommand, UpdateCommand, DeleteCommand, GetCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
+import type { UpdateCommandOutput, GetCommandOutput } from "@aws-sdk/lib-dynamodb";
 import type { SuccessResponse, ErrorResponse, OperationResult, GetResult } from "../data/types.js";
 import { CartItemCreate, CartItemUpdate } from "../data/validation.js";
 
 const router: Router = express.Router();
 
 type DbCartItem = {
-  pk: string;      // userId
-  sk: `CART#${string}`;
+  pk: string; // userId
+  sk: `CART#p${string}`;
   productId: string;
   amount: number;
 };
@@ -33,39 +33,36 @@ type CartItem = {
 };
 
 //hämta carten
-router.get(
-  "/:userId",
-  async (req: Request<UserParams>, res: Response<SuccessResponse<DbCartItem> | ErrorResponse>) => {
-    try {
-      const { userId } = req.params;
+router.get("/:userId", async (req: Request<UserParams>, res: Response<SuccessResponse<DbCartItem> | ErrorResponse>) => {
+  try {
+    const { userId } = req.params;
 
-      //fånga om inte userid finns
+    //fånga om inte userid finns
 
-      const cartResult: GetResult = await db.send(
-        new QueryCommand({
-          TableName: myTable,
-          KeyConditionExpression: "pk = :pk AND begins_with(sk, :cart)",
-          ExpressionAttributeValues: {
-            ":pk": `USER#${userId}`,
-            ":cart": "CART#",
-          },
-        })
-      );
+    const cartResult: GetResult = await db.send(
+      new QueryCommand({
+        TableName: myTable,
+        KeyConditionExpression: "pk = :pk AND begins_with(sk, :cart)",
+        ExpressionAttributeValues: {
+          ":pk": `USER#u${userId}`,
+          ":cart": "CART#p",
+        },
+      })
+    );
 
-      return res.status(200).json({
-        success: true,
-        count: cartResult.Count ?? 0,
-        items: cartResult.Items ?? [],
-      });
-    } catch (error) {
-      return res.status(500).json({
-        success: false,
-        message: "Could not fetch cart",
-        error: (error as Error).message,
-      });
-    }
+    return res.status(200).json({
+      success: true,
+      count: cartResult.Count ?? 0,
+      items: cartResult.Items ?? [],
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Could not fetch cart",
+      error: (error as Error).message,
+    });
   }
-);
+});
 
 //lägga till en ny produkt
 router.post(
@@ -83,17 +80,18 @@ router.post(
     }
 
     try {
-      const result = await db.send(new UpdateCommand({
-        TableName: myTable,
-        Key: { pk: `USER#${userId}`, sk: `CART#${parsed.data.productId}` },
-        UpdateExpression: "SET amount = if_not_exists(amount, :zero) + :inc, productId = :pid",
-        ExpressionAttributeValues: {
-          ":zero": 0,
-          ":inc": parsed.data.amount,
-          ":pid": parsed.data.productId,
-        },
-        ReturnValues: "ALL_NEW",
-      }));
+      const result = await db.send(
+        new UpdateCommand({
+          TableName: myTable,
+          Key: { pk: `USER#u${userId}`, sk: `CART#p${parsed.data.productId}` },
+          UpdateExpression: "SET amount = if_not_exists(amount, :zero) + :inc",
+          ExpressionAttributeValues: {
+            ":zero": 0,
+            ":inc": parsed.data.amount,
+          },
+          ReturnValues: "ALL_NEW",
+        })
+      );
 
       return res.status(200).json({
         success: true,
@@ -109,7 +107,6 @@ router.post(
     }
   }
 );
-
 
 //ändra antal av en produkt i korgen
 router.put(
@@ -131,7 +128,7 @@ router.put(
       const existing: GetCommandOutput = await db.send(
         new GetCommand({
           TableName: myTable,
-          Key: { pk: `USER#${userId}`, sk: `CART#${cartId}` },
+          Key: { pk: `USER#u${userId}`, sk: `CART#u${cartId}` },
         })
       );
 
@@ -180,17 +177,20 @@ router.put(
   }
 );
 
-//radera en produkt 
+//radera en produkt
 router.delete(
   "/:userId/:cartId",
-  async (req: Request<{ userId: string; cartId: string }>, res: Response<OperationResult<DbCartItem> | ErrorResponse>) => {
+  async (
+    req: Request<{ userId: string; cartId: string }>,
+    res: Response<OperationResult<DbCartItem> | ErrorResponse>
+  ) => {
     const { userId, cartId } = req.params;
 
     try {
       const result = await db.send(
         new DeleteCommand({
           TableName: myTable,
-          Key: { pk: `USER#${userId}`, sk: `CART#${cartId}` },
+          Key: { pk: `USER#u${userId}`, sk: `CART#p${cartId}` },
           ConditionExpression: "attribute_exists(sk)",
           ReturnValues: "ALL_OLD",
         })
@@ -207,11 +207,10 @@ router.delete(
       }
 
       return res.status(200).json({
-          success: true,
-          message: "Product removed",
-          item: result.Attributes as DbCartItem,
-        },
-      );
+        success: true,
+        message: "Product removed",
+        item: result.Attributes as DbCartItem,
+      });
     } catch (error) {
       return res.status(500).json({
         success: false,
@@ -231,18 +230,14 @@ router.delete("/:userId", async (req: Request<UserParams>, res: Response) => {
       new QueryCommand({
         TableName: myTable,
         KeyConditionExpression: "pk = :pk AND begins_with(sk, :c)",
-        ExpressionAttributeValues: { ":pk": `USER#${userId}`, ":c": "CART#" },
+        ExpressionAttributeValues: { ":pk": `USER#u${userId}`, ":c": "CART#p" },
       })
     );
 
     const items = (q.Items ?? []) as DbCartItem[];
 
     await Promise.all(
-      items.map((it) =>
-        db.send(
-          new DeleteCommand({ TableName: myTable, Key: { pk: it.pk, sk: it.sk } })
-        )
-      )
+      items.map((it) => db.send(new DeleteCommand({ TableName: myTable, Key: { pk: it.pk, sk: it.sk } })))
     );
 
     return res.send({

@@ -24,8 +24,8 @@ router.get("/", async (req, res: Response<SuccessResponse<Product> | ErrorRespon
         TableName: myTable,
         KeyConditionExpression: "pk = :p AND begins_with(sk, :product)",
         ExpressionAttributeValues: {
-          ":p": "products",
-          ":product": "productId",
+          ":p": "PRODUCTS",
+          ":product": "PRODUCT#p",
         },
       })
     );
@@ -53,8 +53,8 @@ router.get("/:id", async (req: Request<IdParam>, res: Response<object | ErrorRes
       new GetCommand({
         TableName: myTable,
         Key: {
-          pk: "products",
-          sk: productId,
+          pk: "PRODUCTS",
+          sk: `PRODUCT#p${productId}`,
         },
       })
     );
@@ -82,8 +82,8 @@ router.delete("/:id", async (req: Request<IdParam>, res: Response<OperationResul
       new DeleteCommand({
         TableName: myTable,
         Key: {
-          pk: "products",
-          sk: productId,
+          pk: "PRODUCTS",
+          sk: `PRODUCT#p${productId}`,
         },
         ConditionExpression: "attribute_exists(sk)",
         ReturnValues: "ALL_OLD",
@@ -99,7 +99,7 @@ router.delete("/:id", async (req: Request<IdParam>, res: Response<OperationResul
     if ((error as Error).name === "ConditionalCheckFailedException") {
       res.status(404).send({
         success: false,
-        message: `${productId} does not exist`,
+        message: `p${productId} does not exist`,
         error: (error as Error).message,
       });
     } else {
@@ -197,18 +197,16 @@ router.put("/:id", async (req: Request<IdParam>, res: Response<OperationResult<U
       new UpdateCommand({
         TableName: myTable,
         Key: {
-          pk: "products",
-          sk: productId,
+          pk: "PRODUCTS",
+          sk: `PRODUCT#p${productId}`,
         },
-        UpdateExpression: "SET #img = :i, #stock = :a, #price = :p, #nm = :n",
+        UpdateExpression: "SET #stock = :a, #price = :p, #nm = :n",
         ExpressionAttributeNames: {
-          "#img": "image",
           "#stock": "amountStock",
           "#price": "price",
           "#nm": "name",
         },
         ExpressionAttributeValues: {
-          ":i": updatedProduct.image,
           ":a": updatedProduct.amountStock,
           ":p": updatedProduct.price,
           ":n": updatedProduct.name,
@@ -227,7 +225,7 @@ router.put("/:id", async (req: Request<IdParam>, res: Response<OperationResult<U
     if ((error as Error).name === "ConditionalCheckFailedException") {
       res.status(404).send({
         success: false,
-        message: `${productId} does not exist`,
+        message: `p${productId} does not exist`,
         error: (error as Error).message,
       });
     } else {
