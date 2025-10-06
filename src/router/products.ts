@@ -17,6 +17,46 @@ type Product = {
   name: string;
 };
 
+// Search product
+router.get("/search/:name", async (req: Request, res: Response<SuccessResponse<Product> | ErrorResponse>) => {
+  const name = req.params.name;
+
+  try {
+    const result = await db.send(
+      new QueryCommand({
+        TableName: myTable,
+        KeyConditionExpression: "pk = :p AND begins_with(sk, :sk)",
+        ExpressionAttributeValues: {
+          ":p": "PRODUCTS",
+          ":sk": "PRODUCT#",
+        },
+      })
+    );
+
+    const filtered = result.Items?.filter((item) => item.name && item.name.toLowerCase().includes(name?.toLowerCase()));
+
+    if (filtered?.length === 0) {
+      res.status(404).send({
+        success: false,
+        message: "Could not fetch products.",
+        error: `No item found in DynamoDB for key: ${name}`,
+      });
+    }
+
+    res.status(200).send({
+      success: true,
+      count: filtered?.length ?? 0,
+      items: filtered,
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Could not fetch products.",
+      error: (error as Error).message,
+    });
+  }
+});
+
 //Get all products
 router.get("/", async (req, res: Response<SuccessResponse<Product> | ErrorResponse>) => {
   try {

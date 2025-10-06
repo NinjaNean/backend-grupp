@@ -24,6 +24,42 @@ interface UserId {
   userId: number;
 }
 
+// Get alla carts
+router.get("/", async (req, res: Response<SuccessResponse<DbCartItem> | ErrorResponse>) => {
+  try {
+    const result = await db.send(
+      new ScanCommand({
+        TableName: myTable,
+        FilterExpression: "begins_with(pk, :pkPrefix) AND begins_with(sk, :skPrefix)",
+        ExpressionAttributeValues: {
+          ":pkPrefix": "USER#",
+          ":skPrefix": "CART#",
+        },
+      })
+    );
+
+    if (!result.Items) {
+      res.status(404).send({
+        success: false,
+        message: "Could not fetch carts.",
+        error: `No item found in DynamoDB.`,
+      });
+    }
+
+    res.status(200).send({
+      success: true,
+      count: result.Count ?? 0,
+      items: result.Items,
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Could not fetch products.",
+      error: (error as Error).message,
+    });
+  }
+});
+
 // Get specifik users cart
 router.get("/:userId", async (req: Request<UserId>, res: Response<SuccessResponse<DbCartItem> | ErrorResponse>) => {
   try {
@@ -201,9 +237,7 @@ router.delete(
         })
       );
 
-      const deleted = result.Attributes as DbCartItem | undefined;
-
-      if (!deleted) {
+      if (!result.Attributes) {
         return res.status(404).send({
           success: false,
           message: "Cart item not found",
@@ -214,7 +248,7 @@ router.delete(
       return res.status(200).send({
         success: true,
         message: "Product removed",
-        item: result.Attributes as DbCartItem,
+        item: result.Attributes,
       });
     } catch (error) {
       return res.status(500).send({
@@ -227,7 +261,7 @@ router.delete(
 );
 
 // Delete cart
-router.delete("/:userId", async (req: Request<UserId>, res: Response) => {
+router.delete("/:userId", async (req: Request<UserId>, res: Response<SuccessResponse<DbCartItem> | ErrorResponse>) => {
   const { userId } = req.params;
 
   try {
@@ -256,12 +290,13 @@ router.delete("/:userId", async (req: Request<UserId>, res: Response) => {
     return res.send({
       success: true,
       message: "Total cart removed",
-      removed: items.length,
+      items: items,
     });
-  } catch {
+  } catch (error) {
     return res.status(500).send({
       success: false,
-      error: "Could not remove cart",
+      message: "Could not remove cart",
+      error: (error as Error).message,
     });
   }
 });
