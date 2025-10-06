@@ -24,6 +24,42 @@ interface UserId {
   userId: number;
 }
 
+// Get alla carts
+router.get("/", async (req, res: Response<SuccessResponse<DbCartItem> | ErrorResponse>) => {
+  try {
+    const result = await db.send(
+      new ScanCommand({
+        TableName: myTable,
+        FilterExpression: "begins_with(pk, :pkPrefix) AND begins_with(sk, :skPrefix)",
+        ExpressionAttributeValues: {
+          ":pkPrefix": "USER#",
+          ":skPrefix": "CART#",
+        },
+      })
+    );
+
+    if (!result.Items) {
+      res.status(404).send({
+        success: false,
+        message: "Could not fetch carts.",
+        error: `No item found in DynamoDB.`,
+      });
+    }
+
+    res.status(200).send({
+      success: true,
+      count: result.Count ?? 0,
+      items: result.Items,
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Could not fetch products.",
+      error: (error as Error).message,
+    });
+  }
+});
+
 // Get specifik users cart
 router.get("/:userId", async (req: Request<UserId>, res: Response<SuccessResponse<DbCartItem> | ErrorResponse>) => {
   try {

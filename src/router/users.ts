@@ -34,7 +34,7 @@ router.get("/search/:user", async (req: Request, res: Response<SuccessResponse<U
 
     const filtered = result.Items?.filter((item) => item.name && item.name.toLowerCase().includes(user));
 
-    if (!result.Items) {
+    if (filtered?.length === 0) {
       res.status(404).send({
         success: false,
         message: "Could not fetch products.",

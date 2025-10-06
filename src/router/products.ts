@@ -35,7 +35,7 @@ router.get("/search/:name", async (req: Request, res: Response<SuccessResponse<P
 
     const filtered = result.Items?.filter((item) => item.name && item.name.toLowerCase().includes(name));
 
-    if (!result.Items) {
+    if (filtered?.length === 0) {
       res.status(404).send({
         success: false,
         message: "Could not fetch products.",
