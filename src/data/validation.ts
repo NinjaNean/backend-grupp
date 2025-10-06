@@ -12,7 +12,7 @@ const UserSchema = z.object({
 const UserIdSchema = z
   .string()
   .min(1)
-  .regex(/^USER#u\d+$/); // id must start with "USER#u" followed by a number.
+  .regex(/^\d+/); // id must start with a number.
 
 const ProductSchema = z.object({
   pk: z.literal("PRODUCTS", {

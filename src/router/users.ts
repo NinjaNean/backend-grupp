@@ -206,8 +206,8 @@ router.put(
         new UpdateCommand({
           TableName: myTable,
           Key: {
-            pk: userId,
-            sk: "meta",
+            pk: `USER#u${userId}`,
+            sk: "META",
           },
           UpdateExpression: "SET #name = :name",
           ExpressionAttributeNames: {
