@@ -241,6 +241,14 @@ router.delete("/:userId", async (req: Request<UserId>, res: Response) => {
 
     const items = (q.Items ?? []) as DbCartItem[];
 
+    if (items.length === 0) {
+      return res.status(404).send({
+        success: false,
+        message: "Cart not found",
+        error: `No cart found for user with id ${userId}`,
+      });
+    }
+
     await Promise.all(
       items.map((it) => db.send(new DeleteCommand({ TableName: myTable, Key: { pk: it.pk, sk: it.sk } })))
     );
