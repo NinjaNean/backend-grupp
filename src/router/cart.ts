@@ -148,7 +148,7 @@ router.put(
       const result: UpdateCommandOutput = await db.send(
         new UpdateCommand({
           TableName: myTable,
-          Key: { pk: `USER#${userId}`, sk: `CART#${cartId}` },
+          Key: { pk: `USER#u${userId}`, sk: `CART#p${cartId}` },
           UpdateExpression: "SET amount = :amount",
           ExpressionAttributeValues: { ":amount": updatedAmount },
           ReturnValues: "ALL_NEW",

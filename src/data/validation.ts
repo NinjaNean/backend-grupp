@@ -49,9 +49,6 @@ const ProductSchema = z.object({
 });
 
 const UpdateProductSchema = z.object({
-  // image: z.string({
-  //   message: "Image must be a string (URL).",
-  // }),
   amountStock: z
     .number({
       message: "Stock must be a number.",
@@ -76,7 +73,7 @@ const UpdateProductSchema = z.object({
 });
 
 const CartItemCreate = z.object({
-  productId: z.string().min(1).regex(/^\d+$/),
+  productId: z.number().int().min(1),
   amount: z.number().int().min(1),
 });
 
