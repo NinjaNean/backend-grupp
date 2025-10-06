@@ -17,6 +17,45 @@ interface UserName {
   name: string;
 }
 
+// Search user
+router.get("/search/:user", async (req: Request, res: Response<SuccessResponse<User> | ErrorResponse>) => {
+  const user = req.params.user;
+
+  try {
+    const result = await db.send(
+      new ScanCommand({
+        TableName: myTable,
+        FilterExpression: "begins_with(pk, :prefix)",
+        ExpressionAttributeValues: {
+          ":prefix": "USER#",
+        },
+      })
+    );
+
+    const filtered = result.Items?.filter((item) => item.name && item.name.toLowerCase().includes(user));
+
+    if (!result.Items) {
+      res.status(404).send({
+        success: false,
+        message: "Could not fetch products.",
+        error: `No item found in DynamoDB for key: ${user}`,
+      });
+    }
+
+    res.status(200).send({
+      success: true,
+      count: filtered?.length ?? 0,
+      items: filtered,
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Could not fetch products.",
+      error: (error as Error).message,
+    });
+  }
+});
+
 // Get all users
 router.get("/", async (req, res: Response<SuccessResponse<User> | ErrorResponse>) => {
   try {
