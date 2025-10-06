@@ -8,12 +8,12 @@ export type OperationResult<T> = {
 // success response for GET
 export type SuccessResponse<T> = {
   success: boolean;
-  count: number;
-  items: T[] | T;
+  count?: number;
+  items: T[] | GetResult;
 };
 
 type Error = {
-  field: string;
+  field?: string;
   message: string;
 };
 
@@ -28,7 +28,7 @@ export type GetResult = Record<string, any> | undefined;
 
 // for url-params
 export interface IdParam {
-  id: string;
+  id: number;
 }
 
 // request body types

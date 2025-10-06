@@ -2,17 +2,34 @@ import * as z from "zod";
 
 const UserSchema = z.object({
   pk: z
-    .string()
-    .min(1)
-    .regex(/^USER#u\d+$/), // pk must start with "USER#u" followed by a number.
-  sk: z.literal("META"), // sk must be exactly "META"
-  name: z.string().min(1), // name must be a non-empty string.
+    .string({
+      message: "The primary key (pk) must be a string.",
+    })
+    .min(1, {
+      message: "The primary key (pk) is required.",
+    })
+    .regex(/^USER#u\d+$/, {
+      message: "The primary key (pk) must start with 'USER#u' followed by a number (e.g., 'USER#u123').",
+    }),
+  sk: z.literal("META", {
+    message: "The Sort key (sk) must be exactly 'META'.",
+  }),
+  name: z
+    .string({
+      message: "Name must be a string.",
+    })
+    .min(1, {
+      message: "Name is required.",
+    }),
 });
 
-const UserIdSchema = z
-  .string()
-  .min(1)
-  .regex(/^\d+/); // id must start with a number.
+const IdSchema = z
+  .number({
+    message: "Id must be a number.",
+  })
+  .int({
+    message: "Id must be an integer.",
+  });
 
 const ProductSchema = z.object({
   pk: z.literal("PRODUCTS", {
@@ -23,7 +40,7 @@ const ProductSchema = z.object({
       message: "Sort key (sk) must be a string.",
     })
     .regex(/^PRODUCT#p\d+$/, {
-      message: "The sort key (sk) must start with 'PRODUCT#' followed by a number (e.g., 'PRODUCT#p123').",
+      message: "The sort key (sk) must start with 'PRODUCT#p' followed by a number (e.g., 'PRODUCT#p123').",
     }),
   amountStock: z
     .number({
@@ -73,12 +90,39 @@ const UpdateProductSchema = z.object({
 });
 
 const CartItemCreate = z.object({
-  productId: z.number().int().min(1),
-  amount: z.number().int().min(1),
+  productId: z
+    .number({
+      message: "productId must be a number.",
+    })
+    .int({
+      message: "productId must be an integer.",
+    })
+    .min(1, {
+      message: "productId is required.",
+    }),
+  amount: z
+    .number({
+      message: "amount must be a number.",
+    })
+    .int({
+      message: "amount must be an integer.",
+    })
+    .min(1, {
+      message: "amount is required.",
+    }),
 });
 
 const CartItemUpdate = z.object({
-  amount: z.number().int().min(1),
+  amount: z
+    .number({
+      message: "amount must be a number.",
+    })
+    .int({
+      message: "amount must be an integer.",
+    })
+    .min(1, {
+      message: "amount is required.",
+    }),
 });
 
-export { UserSchema, UserIdSchema, ProductSchema, UpdateProductSchema, CartItemCreate, CartItemUpdate };
+export { UserSchema, IdSchema, ProductSchema, UpdateProductSchema, CartItemCreate, CartItemUpdate };

@@ -2,32 +2,22 @@ import { GetCommand, QueryCommand, ScanCommand, PutCommand, DeleteCommand, Updat
 import express from "express";
 import type { Request, Response, Router } from "express";
 import { db, myTable } from "../data/db.js";
-import { UserIdSchema, UserSchema } from "../data/validation.js";
+import { IdSchema, UserSchema } from "../data/validation.js";
 import type { ErrorResponse, OperationResult, SuccessResponse, IdParam, GetResult } from "../data/types.js";
 
 const router: Router = express.Router();
-
-interface CreateUserBody {
-  pk: string;
-  sk: string;
-  name: string;
-}
-
-interface UpdateUserBody {
-  name: string;
-}
 
 interface User {
   pk: string;
   sk: string;
   name: string;
 }
+
 interface UserName {
   name: string;
 }
 
-// get all users
-
+// Get all users
 router.get("/", async (req, res: Response<SuccessResponse<User> | ErrorResponse>) => {
   try {
     const result: GetResult = await db.send(
@@ -42,11 +32,9 @@ router.get("/", async (req, res: Response<SuccessResponse<User> | ErrorResponse>
       })
     );
 
-    // const items = result.Items as user[]  // old before successResponse type
     res.status(200).send({
-      // respond with 200 ok and count of user and the useres
-      success: true, // added success true to match successResponse type
-      count: result.Count ?? 0, // ?? = nullish coalescing operator if null or undefined then 0
+      success: true,
+      count: result.Count ?? 0,
       items: result.Items ?? [],
     });
   } catch (error) {
@@ -54,24 +42,28 @@ router.get("/", async (req, res: Response<SuccessResponse<User> | ErrorResponse>
       success: false,
       error: (error as Error).message,
       message: "Could not fetch users",
-      //   message: "Could not fetch users" // might need if count is zero sense you cant only get "Cannot GET"
     });
   }
 });
 
-// get user by id
-
+// Get user by id
 router.get("/:id", async (req: Request<IdParam>, res: Response<SuccessResponse<User> | ErrorResponse>) => {
   try {
-    const validationResult = UserIdSchema.safeParse(req.params.id); // validate user id from params
+    const validationResult = IdSchema.safeParse(Number(req.params.id)); // validate user id from params
+
     if (!validationResult.success) {
       // if validation fails
+      const errors = validationResult.error.issues.map((err) => ({
+        message: err.message,
+      }));
+
       return res.status(400).send({
         success: false,
-        error: validationResult.error.message,
         message: "Invalid user ID",
+        error: errors,
       });
     }
+
     const userId = validationResult.data; // get validated user id
 
     const result: GetResult = await db.send(
@@ -111,17 +103,20 @@ router.get("/:id", async (req: Request<IdParam>, res: Response<SuccessResponse<U
 });
 
 // POST create new user
-
-router.post("/", async (req: Request<CreateUserBody>, res: Response<OperationResult<User> | ErrorResponse>) => {
+router.post("/", async (req: Request<User>, res: Response<OperationResult<User> | ErrorResponse>) => {
   try {
     let validationResult = UserSchema.safeParse(req.body); // validate input data
 
     if (!validationResult.success) {
+      const errors = validationResult.error.issues.map((err) => ({
+        field: err.path.join("."),
+        message: err.message,
+      }));
       // if validation fails
       return res.status(400).send({
         success: false,
-        error: validationResult.error.message,
         message: "Invalid user data",
+        error: errors,
       });
     }
 
@@ -149,7 +144,6 @@ router.post("/", async (req: Request<CreateUserBody>, res: Response<OperationRes
 });
 
 // DELETE user by id
-
 router.delete("/:id", async (req: Request<IdParam>, res: Response<OperationResult<User> | ErrorResponse>) => {
   try {
     const userId = req.params.id;
@@ -161,7 +155,7 @@ router.delete("/:id", async (req: Request<IdParam>, res: Response<OperationResul
           pk: `USER#u${userId}`,
           sk: "META",
         },
-        ConditionExpression: "attribute_exists(pk)", // ensure user exists
+        ConditionExpression: "attribute_exists(pk)",
         ReturnValues: "ALL_OLD",
       })
     );
@@ -185,18 +179,21 @@ router.delete("/:id", async (req: Request<IdParam>, res: Response<OperationResul
 // PUT update user by Id
 router.put(
   "/:id",
-  async (req: Request<IdParam, {}, UpdateUserBody>, res: Response<OperationResult<UserName> | ErrorResponse>) => {
+  async (req: Request<IdParam, {}, UserName>, res: Response<OperationResult<UserName> | ErrorResponse>) => {
     try {
       const userId = req.params.id;
 
       let validationResult = UserSchema.pick({ name: true }).safeParse(req.body); // you can select fields with pick
 
       if (!validationResult.success) {
+        const errors = validationResult.error.issues.map((err) => ({
+          message: err.message,
+        }));
         // if validation fails
         return res.status(400).send({
           success: false,
-          error: validationResult.error.message,
           message: "Invalid user data",
+          error: errors,
         });
       }
 

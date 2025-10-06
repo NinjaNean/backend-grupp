@@ -17,6 +17,7 @@ type Product = {
   name: string;
 };
 
+//Get all products
 router.get("/", async (req, res: Response<SuccessResponse<Product> | ErrorResponse>) => {
   try {
     const result: GetResult = await db.send(
@@ -44,9 +45,9 @@ router.get("/", async (req, res: Response<SuccessResponse<Product> | ErrorRespon
   }
 });
 
-// TODO: byt ut object
-router.get("/:id", async (req: Request<IdParam>, res: Response<object | ErrorResponse>) => {
-  const productId: string = req.params.id;
+// Get one specifik product
+router.get("/:id", async (req: Request<IdParam>, res: Response<SuccessResponse<Product> | ErrorResponse>) => {
+  const productId = req.params.id;
 
   try {
     const result = await db.send(
@@ -62,7 +63,8 @@ router.get("/:id", async (req: Request<IdParam>, res: Response<object | ErrorRes
     if (!result.Item) {
       res.status(404).send({
         success: false,
-        Item: "Product dose not exist.",
+        message: "Product dose not exist.",
+        error: `No item found in DynamoDB for key: PRODUCT#p${productId}`,
       });
 
       return;
@@ -70,7 +72,7 @@ router.get("/:id", async (req: Request<IdParam>, res: Response<object | ErrorRes
 
     res.status(200).send({
       success: true,
-      Item: result.Item,
+      items: result.Item,
     });
   } catch (error) {
     res.status(500).send({
@@ -81,6 +83,7 @@ router.get("/:id", async (req: Request<IdParam>, res: Response<object | ErrorRes
   }
 });
 
+// Delete one specifik product
 router.delete("/:id", async (req: Request<IdParam>, res: Response<OperationResult<Product> | ErrorResponse>) => {
   const productId = req.params.id;
 
@@ -121,6 +124,7 @@ router.delete("/:id", async (req: Request<IdParam>, res: Response<OperationResul
   }
 });
 
+// Post a new product
 router.post("/", async (req: Request<Product>, res: Response<OperationResult<Product> | ErrorResponse>) => {
   const parsed = ProductSchema.safeParse(req.body);
 
@@ -172,6 +176,7 @@ router.post("/", async (req: Request<Product>, res: Response<OperationResult<Pro
   }
 });
 
+// Put body
 type UpdatedProduct = {
   image: string;
   amountStock: number;
@@ -179,8 +184,9 @@ type UpdatedProduct = {
   name: string;
 };
 
+// Update product information
 router.put("/:id", async (req: Request<IdParam>, res: Response<OperationResult<UpdatedProduct> | ErrorResponse>) => {
-  const productId: string = req.params.id;
+  const productId = req.params.id;
 
   const parsed = UpdateProductSchema.safeParse(req.body);
 
