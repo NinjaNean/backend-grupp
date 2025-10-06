@@ -128,10 +128,10 @@ router.put(
       const existing: GetCommandOutput = await db.send(
         new GetCommand({
           TableName: myTable,
-          Key: { pk: `USER#u${userId}`, sk: `CART#u${cartId}` },
+          Key: { pk: `USER#u${userId}`, sk: `CART#p${cartId}` },
         })
       );
-
+      console.log(cartId)
       if (!existing.Item) {
         return res.status(404).json({
           success: false,

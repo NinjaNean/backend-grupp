@@ -49,9 +49,9 @@ const ProductSchema = z.object({
 });
 
 const UpdateProductSchema = z.object({
-  image: z.string({
-    message: "Image must be a string (URL).",
-  }),
+  // image: z.string({
+  //   message: "Image must be a string (URL).",
+  // }),
   amountStock: z
     .number({
       message: "Stock must be a number.",
