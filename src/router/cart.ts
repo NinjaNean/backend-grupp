@@ -37,8 +37,6 @@ router.get("/:userId", async (req: Request<UserParams>, res: Response<SuccessRes
   try {
     const { userId } = req.params;
 
-    //fånga om inte userid finns
-
     const cartResult: GetResult = await db.send(
       new QueryCommand({
         TableName: myTable,
@@ -49,6 +47,14 @@ router.get("/:userId", async (req: Request<UserParams>, res: Response<SuccessRes
         },
       })
     );
+
+    if (cartResult.Count === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "The user dose not exist.",
+        error: cartResult.error,
+      });
+    }
 
     return res.status(200).json({
       success: true,
@@ -131,7 +137,7 @@ router.put(
           Key: { pk: `USER#u${userId}`, sk: `CART#p${cartId}` },
         })
       );
-      console.log(cartId)
+      console.log(cartId);
       if (!existing.Item) {
         return res.status(404).json({
           success: false,

@@ -59,6 +59,15 @@ router.get("/:id", async (req: Request<IdParam>, res: Response<object | ErrorRes
       })
     );
 
+    if (!result.Item) {
+      res.status(404).send({
+        success: false,
+        Item: "Product dose not exist.",
+      });
+
+      return;
+    }
+
     res.status(200).send({
       success: true,
       Item: result.Item,
