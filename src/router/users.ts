@@ -32,7 +32,7 @@ router.get("/search/:user", async (req: Request, res: Response<SuccessResponse<U
       })
     );
 
-    const filtered = result.Items?.filter((item) => item.name && item.name.toLowerCase().includes(user));
+    const filtered = result.Items?.filter((item) => item.name && item.name.toLowerCase().includes(user?.toLowerCase()));
 
     if (filtered?.length === 0) {
       res.status(404).send({

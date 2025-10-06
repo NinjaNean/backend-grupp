@@ -33,7 +33,7 @@ router.get("/search/:name", async (req: Request, res: Response<SuccessResponse<P
       })
     );
 
-    const filtered = result.Items?.filter((item) => item.name && item.name.toLowerCase().includes(name));
+    const filtered = result.Items?.filter((item) => item.name && item.name.toLowerCase().includes(name?.toLowerCase()));
 
     if (filtered?.length === 0) {
       res.status(404).send({

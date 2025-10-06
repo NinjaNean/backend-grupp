@@ -237,9 +237,7 @@ router.delete(
         })
       );
 
-      const deleted = result.Attributes as DbCartItem | undefined;
-
-      if (!deleted) {
+      if (!result.Attributes) {
         return res.status(404).send({
           success: false,
           message: "Cart item not found",
@@ -250,7 +248,7 @@ router.delete(
       return res.status(200).send({
         success: true,
         message: "Product removed",
-        item: result.Attributes as DbCartItem,
+        item: result.Attributes,
       });
     } catch (error) {
       return res.status(500).send({
@@ -263,7 +261,7 @@ router.delete(
 );
 
 // Delete cart
-router.delete("/:userId", async (req: Request<UserId>, res: Response) => {
+router.delete("/:userId", async (req: Request<UserId>, res: Response<SuccessResponse<DbCartItem> | ErrorResponse>) => {
   const { userId } = req.params;
 
   try {
@@ -292,12 +290,13 @@ router.delete("/:userId", async (req: Request<UserId>, res: Response) => {
     return res.send({
       success: true,
       message: "Total cart removed",
-      removed: items.length,
+      items: items,
     });
-  } catch {
+  } catch (error) {
     return res.status(500).send({
       success: false,
-      error: "Could not remove cart",
+      message: "Could not remove cart",
+      error: (error as Error).message,
     });
   }
 });
