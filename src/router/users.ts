@@ -1,6 +1,274 @@
+import { GetCommand, QueryCommand, ScanCommand, PutCommand, DeleteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import express from "express";
 import type { Request, Response, Router } from "express";
+import { db, myTable } from "../data/db.js";
+import { IdSchema, UserSchema } from "../data/validation.js";
+import type { ErrorResponse, OperationResult, SuccessResponse, IdParam, GetResult } from "../data/types.js";
 
 const router: Router = express.Router();
+
+interface User {
+  pk: string;
+  sk: string;
+  name: string;
+}
+
+interface UserName {
+  name: string;
+}
+
+// Search user
+router.get("/search/:user", async (req: Request, res: Response<SuccessResponse<User> | ErrorResponse>) => {
+  const user = req.params.user;
+
+  try {
+    const result = await db.send(
+      new ScanCommand({
+        TableName: myTable,
+        FilterExpression: "begins_with(pk, :prefix)",
+        ExpressionAttributeValues: {
+          ":prefix": "USER#",
+        },
+      })
+    );
+
+    const filtered = result.Items?.filter((item) => item.name && item.name.toLowerCase().includes(user?.toLowerCase()));
+
+    if (filtered?.length === 0) {
+      res.status(404).send({
+        success: false,
+        message: "Could not fetch products.",
+        error: `No item found in DynamoDB for key: ${user}`,
+      });
+    }
+
+    res.status(200).send({
+      success: true,
+      count: filtered?.length ?? 0,
+      items: filtered,
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Could not fetch products.",
+      error: (error as Error).message,
+    });
+  }
+});
+
+// Get all users
+router.get("/", async (req, res: Response<SuccessResponse<User> | ErrorResponse>) => {
+  try {
+    const result: GetResult = await db.send(
+      new ScanCommand({
+        // ScanCommand to get entire table
+        TableName: myTable,
+        FilterExpression: "begins_with(pk, :userPrefix) AND begins_with(sk, :meta)", // filter for users only
+        ExpressionAttributeValues: {
+          ":userPrefix": "USER", // all users have pk starting with "user"
+          ":meta": "META", // all user meta have sk "meta"
+        },
+      })
+    );
+
+    res.status(200).send({
+      success: true,
+      count: result.Count ?? 0,
+      items: result.Items ?? [],
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      error: (error as Error).message,
+      message: "Could not fetch users",
+    });
+  }
+});
+
+// Get user by id
+router.get("/:id", async (req: Request<IdParam>, res: Response<SuccessResponse<User> | ErrorResponse>) => {
+  try {
+    const validationResult = IdSchema.safeParse(Number(req.params.id)); // validate user id from params
+
+    if (!validationResult.success) {
+      // if validation fails
+      const errors = validationResult.error.issues.map((err) => ({
+        message: err.message,
+      }));
+
+      return res.status(400).send({
+        success: false,
+        message: "Invalid user ID",
+        error: errors,
+      });
+    }
+
+    const userId: number = validationResult.data; // get validated user id
+
+    const result: GetResult = await db.send(
+      new QueryCommand({
+        TableName: myTable,
+        KeyConditionExpression: "pk = :user AND begins_with(sk, :meta)", // query for specific user by id
+        ExpressionAttributeValues: {
+          ":user": `USER#u${userId}`,
+          ":meta": "META",
+        },
+      })
+    );
+    if (!result.Items || result.Items.length === 0) {
+      return res.status(404).send({
+        success: false,
+        error: "Empty item",
+        message: "User not found",
+      });
+    }
+
+    res.status(200).send({
+      // respond with 200 ok and count of user and the useres
+      //    count: result.Count,
+      //     items
+
+      success: true,
+      count: result.count ?? 0,
+      items: result.Items ?? [],
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      error: (error as Error).message,
+      message: "Could not fetch by Id", //
+    });
+  }
+});
+
+// POST create new user
+router.post("/", async (req: Request<User>, res: Response<OperationResult<User> | ErrorResponse>) => {
+  try {
+    let validationResult = UserSchema.safeParse(req.body); // validate input data
+
+    if (!validationResult.success) {
+      const errors = validationResult.error.issues.map((err) => ({
+        field: err.path.join("."),
+        message: err.message,
+      }));
+      // if validation fails
+      return res.status(400).send({
+        success: false,
+        message: "Invalid user data",
+        error: errors,
+      });
+    }
+
+    const newUser: User = validationResult.data; // get validated data
+
+    await db.send(
+      new PutCommand({
+        TableName: myTable,
+        Item: newUser,
+        ConditionExpression: "attribute_not_exists(pk)", // prevent overwriting existing user
+      })
+    );
+    res.status(201).send({
+      success: true,
+      message: "User created successfully",
+      item: newUser,
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      error: (error as Error).message,
+      message: "failed to create user",
+    });
+  }
+});
+
+// DELETE user by id
+router.delete("/:id", async (req: Request<IdParam>, res: Response<OperationResult<User> | ErrorResponse>) => {
+  try {
+    const userId : number = req.params.id;
+
+    const result = await db.send(
+      new DeleteCommand({
+        TableName: myTable,
+        Key: {
+          pk: `USER#u${userId}`,
+          sk: "META",
+        },
+        ConditionExpression: "attribute_exists(pk)",
+        ReturnValues: "ALL_OLD",
+      })
+    );
+
+    const deletedUser: User = result.Attributes as User;
+
+    res.status(200).send({
+      success: true,
+      message: "User deleted successfully",
+      item: deletedUser,
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      error: (error as Error).message,
+      message: "Failed to delete user",
+    });
+  }
+});
+
+// PUT update user by Id
+router.put(
+  "/:id",
+  async (req: Request<IdParam, {}, UserName>, res: Response<OperationResult<UserName> | ErrorResponse>) => {
+    try {
+      const userId: number = req.params.id;
+
+      let validationResult = UserSchema.pick({ name: true }).safeParse(req.body); // you can select fields with pick
+
+      if (!validationResult.success) {
+        const errors = validationResult.error.issues.map((err) => ({
+          message: err.message,
+        }));
+        // if validation fails
+        return res.status(400).send({
+          success: false,
+          message: "Invalid user data",
+          error: errors,
+        });
+      }
+
+      const name: string = validationResult.data.name;
+
+      await db.send(
+        new UpdateCommand({
+          TableName: myTable,
+          Key: {
+            pk: `USER#u${userId}`,
+            sk: "META",
+          },
+          UpdateExpression: "SET #name = :name",
+          ExpressionAttributeNames: {
+            "#name": "name",
+          },
+          ExpressionAttributeValues: {
+            ":name": name,
+          },
+          ConditionExpression: "attribute_exists(pk)", // ensure user exists
+        })
+      );
+
+      res.status(200).send({
+        success: true,
+        message: "User name updated successfully",
+        item: { name },
+      });
+    } catch (error) {
+      res.status(500).send({
+        success: false,
+        error: (error as Error).message,
+        message: "Failed to update user",
+      });
+    }
+  }
+);
 
 export default router;
