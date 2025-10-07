@@ -27,7 +27,7 @@ interface UserId {
 // Get alla carts
 router.get("/", async (req, res: Response<SuccessResponse<DbCartItem> | ErrorResponse>) => {
   try {
-    const result = await db.send(
+    const result: GetResult = await db.send(
       new ScanCommand({
         TableName: myTable,
         FilterExpression: "begins_with(pk, :pkPrefix) AND begins_with(sk, :skPrefix)",
@@ -127,7 +127,7 @@ router.post("/:userId", async (req: Request<UserId>, res: Response<OperationResu
   }
 
   try {
-    const result = await db.send(
+    const result: UpdateCommandOutput = await db.send(
       new UpdateCommand({
         TableName: myTable,
         Key: { pk: `USER#u${parsedId.data}`, sk: `CART#p${parsed.data.productId}` },
@@ -191,7 +191,7 @@ router.put(
       }
 
       // Uppdatera antal
-      const updatedAmount = parsed.data.amount;
+      const updatedAmount: number = parsed.data.amount;
 
       const result: UpdateCommandOutput = await db.send(
         new UpdateCommand({

@@ -103,7 +103,7 @@ router.get("/:id", async (req: Request<IdParam>, res: Response<SuccessResponse<U
       });
     }
 
-    const userId = validationResult.data; // get validated user id
+    const userId: number = validationResult.data; // get validated user id
 
     const result: GetResult = await db.send(
       new QueryCommand({
@@ -159,7 +159,7 @@ router.post("/", async (req: Request<User>, res: Response<OperationResult<User> 
       });
     }
 
-    const newUser = validationResult.data; // get validated data
+    const newUser: User = validationResult.data; // get validated data
 
     await db.send(
       new PutCommand({
@@ -185,7 +185,7 @@ router.post("/", async (req: Request<User>, res: Response<OperationResult<User> 
 // DELETE user by id
 router.delete("/:id", async (req: Request<IdParam>, res: Response<OperationResult<User> | ErrorResponse>) => {
   try {
-    const userId = req.params.id;
+    const userId : number = req.params.id;
 
     const result = await db.send(
       new DeleteCommand({
@@ -199,7 +199,7 @@ router.delete("/:id", async (req: Request<IdParam>, res: Response<OperationResul
       })
     );
 
-    const deletedUser = result.Attributes as User;
+    const deletedUser: User = result.Attributes as User;
 
     res.status(200).send({
       success: true,
@@ -220,7 +220,7 @@ router.put(
   "/:id",
   async (req: Request<IdParam, {}, UserName>, res: Response<OperationResult<UserName> | ErrorResponse>) => {
     try {
-      const userId = req.params.id;
+      const userId: number = req.params.id;
 
       let validationResult = UserSchema.pick({ name: true }).safeParse(req.body); // you can select fields with pick
 
@@ -236,7 +236,7 @@ router.put(
         });
       }
 
-      const name = validationResult.data.name;
+      const name: string = validationResult.data.name;
 
       await db.send(
         new UpdateCommand({

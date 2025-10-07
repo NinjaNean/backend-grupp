@@ -17,6 +17,20 @@ type Product = {
   name: string;
 };
 
+interface newProduct {
+    pk: "PRODUCTS";
+    sk: string;
+    amountStock: number;
+    price: number;
+    name: string;
+}
+
+interface updatedProduct{
+    amountStock: number;
+    price: number;
+    name: string;
+}
+
 // Search product
 router.get("/search/:name", async (req: Request, res: Response<SuccessResponse<Product> | ErrorResponse>) => {
   const name = req.params.name;
@@ -87,10 +101,10 @@ router.get("/", async (req, res: Response<SuccessResponse<Product> | ErrorRespon
 
 // Get one specifik product
 router.get("/:id", async (req: Request<IdParam>, res: Response<SuccessResponse<Product> | ErrorResponse>) => {
-  const productId = req.params.id;
+  const productId: number = req.params.id;
 
   try {
-    const result = await db.send(
+    const result: GetResult = await db.send(
       new GetCommand({
         TableName: myTable,
         Key: {
@@ -125,7 +139,7 @@ router.get("/:id", async (req: Request<IdParam>, res: Response<SuccessResponse<P
 
 // Delete one specifik product
 router.delete("/:id", async (req: Request<IdParam>, res: Response<OperationResult<Product> | ErrorResponse>) => {
-  const productId = req.params.id;
+  const productId: number = req.params.id;
 
   console.log(req.params);
 
@@ -183,7 +197,7 @@ router.post("/", async (req: Request<Product>, res: Response<OperationResult<Pro
     return;
   }
 
-  const newProduct = parsed.data;
+  const newProduct: newProduct = parsed.data;
 
   try {
     let result: PutCommandOutput = await db.send(
@@ -226,7 +240,7 @@ type UpdatedProduct = {
 
 // Update product information
 router.put("/:id", async (req: Request<IdParam>, res: Response<OperationResult<UpdatedProduct> | ErrorResponse>) => {
-  const productId = req.params.id;
+  const productId: number = req.params.id;
 
   const parsed = UpdateProductSchema.safeParse(req.body);
 
@@ -245,7 +259,7 @@ router.put("/:id", async (req: Request<IdParam>, res: Response<OperationResult<U
     return;
   }
 
-  const updatedProduct = parsed.data;
+  const updatedProduct: updatedProduct = parsed.data;
 
   try {
     let result = await db.send(
